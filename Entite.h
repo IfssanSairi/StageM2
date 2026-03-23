@@ -8,10 +8,10 @@ using namespace std;
 
 class Entite {
     public :
-    string name;
-    double effectif;
-    double energie_libre;
-    double concentration_ext; // dépend du Vext, fixe pour chaque entité
+    string name = "";
+    double effectif=0;
+    double energie_libre=0;
+    double concentration_ext=0; // dépend du Vext, fixe pour chaque entité
     Entite (){};
     
     Entite(string n);

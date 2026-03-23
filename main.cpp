@@ -26,28 +26,22 @@ struct Reseau
     vector<Reaction*> reactions;
 };
 
-Reseau initialiseReseauDeReactions(string inputnetwork){
-    
-    Reseau reseau;
-    
-    ifstream csv_file(inputnetwork);
-    vector<string> lines;
-    string line;
-    
-    // Read rows with entites data
-    while (getline(csv_file, line)) {
-        stringstream ss(line);
-        string element;
 
-        // Read model and skip unwanted columns
-        // getline(ss, element, ',');
-        lines.push_back(line);
-
-        // Add entite to the vector
+int findEntityByName(vector<Entite*> entites, string target_name)
+{
+    int index = -1;
+    for (size_t k =0; k < entites.size(); k++){
+        if (entites[k]->name==target_name){
+            index = k;
+            break;
+        }
     }
-    
-    for (size_t k=0; k<lines.size(); k++)
-        cout << lines[k] << endl;
+return index;
+}
+
+
+void initialiseStoichiometricMatrix(Reseau & reseau, vector<string> lines)
+{
     
     vector<Reaction*> reac;
     vector<Entite*> ent;
@@ -82,7 +76,7 @@ Reseau initialiseReseauDeReactions(string inputnetwork){
                     if (!isValidInteger(element))
                         throw runtime_error("invalid integer entry.");
                     int s = atoi(element.c_str());
-                    int index_reac = compteur - 1;
+                    size_t index_reac = compteur - 1;
                     if (index_reac>=reac.size())
                         throw std::runtime_error("Stoichiometric index out of reaction vector.");
                     for (int k=0; k<abs(s); k++)
@@ -100,8 +94,116 @@ Reseau initialiseReseauDeReactions(string inputnetwork){
                 compteur++;
             }
         }
-        
     }
+    
+    reseau.entites = ent;
+    reseau.reactions = reac;
+    
+}
+
+
+void initialiseEntities(Reseau& reseau, vector<string> lines)
+{
+
+    for (size_t j=0; j < lines.size(); j++){
+        
+        // read line that is comma separated
+        string line = lines[j];
+        stringstream ss(line);
+        string name, number, free_energy, concentration_ext;
+
+        // Read model and skip unwanted columns
+        getline(ss, name, ',');
+        getline(ss, number, ',');
+        getline(ss, free_energy, ',');
+        getline(ss, concentration_ext, ',');
+        
+        int entindex = findEntityByName(reseau.entites, name);
+        if (entindex<0)
+        {
+            cout << "Entity nout found !! --> " << name << endl;
+            throw std::runtime_error("Entity not found by name");
+        }
+        
+        // Convert variables string to double
+        double effectif = stod(number);
+        double energie_libre = stod(free_energy);
+        double con_ext = stod(concentration_ext);
+        
+        //
+        reseau.entites[entindex]->effectif = effectif;
+        reseau.entites[entindex]->energie_libre = energie_libre;
+        reseau.entites[entindex]->concentration_ext = con_ext;
+    }
+    
+
+}
+
+Reseau initialiseReactionNetwork(string inputnetwork){
+    
+    Reseau reseau;
+    
+    ifstream csv_file(inputnetwork);
+    vector<string> lines;
+    string line;
+    
+    // index flags for matrix, entities and reactions
+    size_t flag_matrix = 0;
+    size_t flag_reactions = 0;
+    size_t flag_entites = 0;
+    
+    // Read rows with entites data
+    int c=-1;
+    while (getline(csv_file, line)) {
+        c++;
+        stringstream ss(line);
+        
+        if (line.find("MATRIX") != line.npos)
+            flag_matrix = c;
+        else if (line.find("REACTIONS") != line.npos)
+            flag_reactions = c;
+        else if (line.find("ENTITES") != line.npos)
+            flag_entites = c;
+        
+        // Read model and skip unwanted columns
+        // getline(ss, element, ',');
+        lines.push_back(line);
+        
+        // Add entite to the vector
+    }
+    
+    vector<string> lines_matrix, lines_entites, lines_reactions;
+    for (size_t i=0; i<lines.size(); i++)
+    {
+        if (i<flag_entites && i>flag_matrix)
+            lines_matrix.push_back(lines[i]);
+        else if (i>flag_entites && i<flag_reactions)
+            lines_entites.push_back(lines[i]);
+        else
+            lines_reactions.push_back(lines[i]);
+    }
+    
+    // init stoichiometric matrix of the reaction network
+    try{
+        initialiseStoichiometricMatrix(reseau, lines_matrix);
+    }
+    catch( const std::runtime_error& error ){
+        cout << error.what() << endl;
+    }
+    
+    try{
+        initialiseEntities(reseau, lines_entites);
+    }
+    catch( const std::runtime_error& error ){
+        cout << error.what() << endl;
+    }
+    //initialiseReactions();
+    
+    //for (size_t k=0; k<lines.size(); k++)
+     //   cout << lines[k] << endl;
+    
+   
+    
     /*
      define printReactionNetwerk(reac, ent);
     cout << "added " << reac.size() << " reactions" << endl;
@@ -158,7 +260,7 @@ int main(int argc,char* argv[]) { // for arguments
             std::cout << "You hit reaction : " << optarg << std::endl;
             try
             {
-                reseau = initialiseReseauDeReactions(string(optarg));
+                reseau = initialiseReactionNetwork(string(optarg));
             }
             catch( const std::runtime_error& error )
             {
