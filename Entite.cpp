@@ -13,7 +13,9 @@ Entite :: Entite (string n, double e, double e_l, double ce){
 }
 
 
-
+Entite :: Entite(string n){
+    name =n;
+}
 
 
 

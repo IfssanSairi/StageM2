@@ -17,7 +17,11 @@ class Reaction {
     double kforward;
     double kbackward;
     
+    Reaction(){};
     Reaction(vector<Entite*> r, vector<Entite*> p, double E);
+    
+    void addReactant(Entite*);
+    void addProduct(Entite*);
     
     double vitesse(bool, double V=1);
     

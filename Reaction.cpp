@@ -25,6 +25,19 @@ Reaction :: Reaction (vector<Entite*> r, vector<Entite*> p, double E){
 }
 
 
+void Reaction::addReactant(Entite* e){
+    reactifs.push_back(e);
+    
+    
+}
+
+void Reaction::addProduct(Entite* e){
+    produits.push_back(e);
+    
+    
+}
+
+
 double Reaction::vitesse(bool isForward, double V){
     double v = isForward?kforward:kbackward;
     Entite* lastreac = NULL;

@@ -9,19 +9,169 @@
 #include <map>
 #include <string>
 #include <list>
+#include <getopt.h>
 
 
 using namespace std;
+
+
+bool isValidInteger(const std::string& s)
+{
+    return( strspn( s.c_str(), "-0123456789" ) == s.size() );
+}
+
+struct Reseau
+{
+    vector<Entite*> entites ;
+    vector<Reaction*> reactions;
+};
+
+Reseau initialiseReseauDeReactions(string inputnetwork){
+    
+    Reseau reseau;
+    
+    ifstream csv_file(inputnetwork);
+    vector<string> lines;
+    string line;
+    
+    // Read rows with entites data
+    while (getline(csv_file, line)) {
+        stringstream ss(line);
+        string element;
+
+        // Read model and skip unwanted columns
+        // getline(ss, element, ',');
+        lines.push_back(line);
+
+        // Add entite to the vector
+    }
+    
+    for (size_t k=0; k<lines.size(); k++)
+        cout << lines[k] << endl;
+    
+    vector<Reaction*> reac;
+    vector<Entite*> ent;
+    
+    for (size_t j=0; j < lines.size();j++){
+        if (j==0){ // save reactions
+            string element;
+            stringstream ss(lines[j]);
+            while (getline(ss, element, ','))
+            {
+                if (!element.empty())
+                {
+                    Reaction * newreac = new Reaction(); // initialisation du constructeur
+                    reac.push_back(newreac);
+                }
+                    
+            }
+        } // end j == 0
+        else // entities
+        {
+            int compteur=0;
+            string element;
+            stringstream ss(lines[j]);
+            while (getline(ss, element, ','))
+            {
+                if (compteur==0){
+                    Entite * newentity = new Entite(element);
+                    ent.push_back(newentity);
+                }
+                else
+                {
+                    if (!isValidInteger(element))
+                        throw runtime_error("invalid integer entry.");
+                    int s = atoi(element.c_str());
+                    int index_reac = compteur - 1;
+                    if (index_reac>=reac.size())
+                        throw std::runtime_error("Stoichiometric index out of reaction vector.");
+                    for (int k=0; k<abs(s); k++)
+                    {
+                        if (s>0)
+                        {
+                            reac[index_reac]->addProduct(ent.back());
+                        }
+                        else
+                        {
+                            reac[index_reac]->addReactant(ent.back());
+                        }
+                    }
+                }
+                compteur++;
+            }
+        }
+        
+    }
+    /*
+     define printReactionNetwerk(reac, ent);
+    cout << "added " << reac.size() << " reactions" << endl;
+    for (size_t i=0; i< ent.size(); i++){
+        cout << ent[i]->name << ",";
+    }
+    cout << endl;
+    
+    for (size_t i=0; i< reac.size(); i++){
+        cout << "reac #" << i << endl;
+        cout << "reactifs :" << endl;
+        for (size_t j=0; j<reac[i]->reactifs.size(); j++)
+            cout << "\t" << reac[i]->reactifs[j]->name << endl;
+        cout << "produits :" << i << endl;
+        for (size_t j=0; j<reac[i]->produits.size(); j++)
+            cout << "\t" << reac[i]->produits[j]->name << endl;
+    }
+    cout << endl;
+    */
+    
+    return reseau;
+}
 
 // Autocatalytic cycle AB
 
 int main(int argc,char* argv[]) { // for arguments
     
+    Reseau reseau;
     
-    
-    
-    return 0;
+    const struct option longopts[] =
+      {
+        {"reseau",   required_argument,   0, 'r'},
+        {"help",      no_argument,        0, 'h'},
+        {0,0,0,0},
+      };
 
+      int index;
+      int iarg=0;
+
+      //turn off getopt error message
+      opterr=1;
+
+      while(iarg != -1)
+      {
+        iarg = getopt_long(argc, argv, "r:h", longopts, &index);
+
+        switch (iarg)
+        {
+          case 'h':
+            std::cout << "You hit help" << std::endl;
+            break;
+
+          case 'r':
+            std::cout << "You hit reaction : " << optarg << std::endl;
+            try
+            {
+                reseau = initialiseReseauDeReactions(string(optarg));
+            }
+            catch( const std::runtime_error& error )
+            {
+                cout << error.what() << endl;
+            }
+            break;
+
+        }
+      }
+
+  
+    
+    
     // File_entites to read
     vector<string> file_entites = {"entites - Feuille 1.csv"};
 
