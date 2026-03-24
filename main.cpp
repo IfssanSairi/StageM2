@@ -15,23 +15,23 @@
 using namespace std;
 
 
-bool isValidInteger(const std::string& s)
+bool isValidInteger(const string& s)
 {
     return( strspn( s.c_str(), "-0123456789" ) == s.size() );
 }
 
-struct Reseau
+struct Reseau // classe sans méthodes pour obtenir les entités et les réactions du réseau
 {
-    vector<Entite*> entites ;
-    vector<Reaction*> reactions;
+    vector<Entite*> entites ; // pointeurs vers objets de type Entite
+    vector<Reaction*> reactions; // pointeurs vers objets de type Reaction
 };
 
 
-int findEntityByName(vector<Entite*> entites, string target_name)
+int findEntityByName(vector<Entite*> entites, string target_name) // fonction permettant de vérifier la correspondance entre entités de la partie matrice et de la partie entités
 {
     int index = -1;
     for (size_t k =0; k < entites.size(); k++){
-        if (entites[k]->name==target_name){
+        if (entites[k]->name==target_name){ // entites est bien un vecteur qui contient des pointeurs
             index = k;
             break;
         }
@@ -40,45 +40,45 @@ return index;
 }
 
 
-void initialiseStoichiometricMatrix(Reseau & reseau, vector<string> lines)
+void initialiseStoichiometricMatrix(Reseau & reseau, vector<string> lines) // vector<string> lines relatif au fichier texte qu'on lui fait lire
 {
     
     vector<Reaction*> reac;
     vector<Entite*> ent;
     
     for (size_t j=0; j < lines.size();j++){
-        if (j==0){ // save reactions
+        if (j==0){ // 1ère ligne avec les noms des réactions (R1, R2, R3...)
             string element;
             stringstream ss(lines[j]);
             while (getline(ss, element, ','))
             {
-                if (!element.empty())
+                if (!element.empty()) // si ce header n'est pas vide ?
                 {
-                    Reaction * newreac = new Reaction(); // initialisation du constructeur
-                    reac.push_back(newreac);
+                    Reaction * newreac = new Reaction(); // initialisation du constructeur // pointeur vers un objet Reaction construit avec le constructeur par défaut
+                    reac.push_back(newreac); // on ajoute ce pointeur dans le vecteur qui convient (aucune info sur la réaction pour l'instant)
                 }
                     
             }
         } // end j == 0
-        else // entities
+        else // entities car à la ligne suivante on arrive sur les chaînes de caractères des entités
         {
             int compteur=0;
             string element;
             stringstream ss(lines[j]);
             while (getline(ss, element, ','))
             {
-                if (compteur==0){
+                if (compteur==0){ // colonne avec les noms des entités
                     Entite * newentity = new Entite(element);
                     ent.push_back(newentity);
                 }
-                else
+                else // autres colonnes
                 {
                     if (!isValidInteger(element))
                         throw runtime_error("invalid integer entry.");
                     int s = atoi(element.c_str());
-                    size_t index_reac = compteur - 1;
+                    size_t index_reac = compteur - 1; // si on a des nb stoechio qui dépassent les colonnes réactions
                     if (index_reac>=reac.size())
-                        throw std::runtime_error("Stoichiometric index out of reaction vector.");
+                        throw runtime_error("Stoichiometric index out of reaction vector.");
                     for (int k=0; k<abs(s); k++)
                     {
                         if (s>0)
@@ -118,11 +118,11 @@ void initialiseEntities(Reseau& reseau, vector<string> lines)
         getline(ss, free_energy, ',');
         getline(ss, concentration_ext, ',');
         
-        int entindex = findEntityByName(reseau.entites, name);
+        int entindex = findEntityByName(reseau.entites, name); // est-ce qu'il y a bien correspondance entre les entités de la matrice et les entités de la partie entités
         if (entindex<0)
         {
             cout << "Entity nout found !! --> " << name << endl;
-            throw std::runtime_error("Entity not found by name");
+            throw runtime_error("Entity not found by name");
         }
         
         // Convert variables string to double
@@ -130,7 +130,7 @@ void initialiseEntities(Reseau& reseau, vector<string> lines)
         double energie_libre = stod(free_energy);
         double con_ext = stod(concentration_ext);
         
-        //
+        //On retrouve l'entité correspondante par son nom dans la partie Entités et on récupère ses attributs
         reseau.entites[entindex]->effectif = effectif;
         reseau.entites[entindex]->energie_libre = energie_libre;
         reseau.entites[entindex]->concentration_ext = con_ext;
@@ -141,7 +141,7 @@ void initialiseEntities(Reseau& reseau, vector<string> lines)
 
 Reseau initialiseReactionNetwork(string inputnetwork){
     
-    Reseau reseau;
+    Reseau reseau; // On crée un objet réseau, qui a comme attributs des vecteurs de pointeurs vers les entités et les réactions
     
     ifstream csv_file(inputnetwork);
     vector<string> lines;
@@ -152,10 +152,9 @@ Reseau initialiseReactionNetwork(string inputnetwork){
     size_t flag_reactions = 0;
     size_t flag_entites = 0;
     
-    // Read rows with entites data
     int c=-1;
     while (getline(csv_file, line)) {
-        c++;
+        c++; // c est incrémenté en début de boucle, comme ça qu'on "avance" dans le fichier
         stringstream ss(line);
         
         if (line.find("MATRIX") != line.npos)
@@ -165,14 +164,11 @@ Reseau initialiseReactionNetwork(string inputnetwork){
         else if (line.find("ENTITES") != line.npos)
             flag_entites = c;
         
-        // Read model and skip unwanted columns
-        // getline(ss, element, ',');
         lines.push_back(line);
         
-        // Add entite to the vector
     }
     
-    vector<string> lines_matrix, lines_entites, lines_reactions;
+    vector<string> lines_matrix, lines_entites, lines_reactions; // les lignes qui correspondent à chaque partie 
     for (size_t i=0; i<lines.size(); i++)
     {
         if (i<flag_entites && i>flag_matrix)
@@ -190,7 +186,7 @@ Reseau initialiseReactionNetwork(string inputnetwork){
     catch( const std::runtime_error& error ){
         cout << error.what() << endl;
     }
-    
+    // init entities of the reaction network
     try{
         initialiseEntities(reseau, lines_entites);
     }
@@ -235,7 +231,7 @@ int main(int argc,char* argv[]) { // for arguments
     
     const struct option longopts[] =
       {
-        {"reseau",   required_argument,   0, 'r'},
+        {"reseau",   required_argument,   0, 'r'},// on met le nom du fichier qui correspond au réseau en entrée en argument
         {"help",      no_argument,        0, 'h'},
         {0,0,0,0},
       };
@@ -257,7 +253,7 @@ int main(int argc,char* argv[]) { // for arguments
             break;
 
           case 'r':
-            std::cout << "You hit reaction : " << optarg << std::endl;
+            std::cout << "You hit reaction : " << optarg << std::endl; // si on a bien spécifié un réseau, on lance l'initialisation du réseau
             try
             {
                 reseau = initialiseReactionNetwork(string(optarg));
