@@ -6,8 +6,8 @@
 
 // Définition des constructeurs
 
-Reaction :: Reaction (vector<Entite*> r, vector<Entite*> p, double E){
-    
+Reaction :: Reaction (string n, vector<Entite*> r, vector<Entite*> p, double E){
+    name = n;
     reactifs = r;
     produits = p;
     E_a = E;
@@ -22,6 +22,10 @@ Reaction :: Reaction (vector<Entite*> r, vector<Entite*> p, double E){
         kforward = exp(-E_a - abs(DeltaG()));
         kbackward = exp(-E_a);
     }
+}
+
+Reaction :: Reaction(string n){
+    name =n;
 }
 
 

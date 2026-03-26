@@ -9,6 +9,7 @@ using namespace std;
 
 class Reaction {
     public: // On déclare les attributs et le constructeur
+    string name;
     vector<Entite*> reactifs;
     vector<Entite*> produits;
     
@@ -18,7 +19,8 @@ class Reaction {
     double kbackward;
     
     Reaction(){};
-    Reaction(vector<Entite*> r, vector<Entite*> p, double E);
+    Reaction(string n);
+    Reaction(string n, vector<Entite*> r, vector<Entite*> p, double E);
     
     void addReactant(Entite*);
     void addProduct(Entite*);

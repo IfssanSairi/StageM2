@@ -39,8 +39,19 @@ int findEntityByName(vector<Entite*> entites, string target_name) // fonction pe
 return index;
 }
 
+int findReactionByName(vector<Reaction*> reactions, string target_name)
+{
+    int index = -1;
+    for (size_t k =0; k < reactions.size(); k++){
+        if (reactions[k]->name==target_name){ // entites est bien un vecteur qui contient des pointeurs
+            index = k;
+            break;
+        }
+    }
+return index;
+}
 
-void initialiseStoichiometricMatrix(Reseau & reseau, vector<string> lines) // vector<string> lines relatif au fichier texte qu'on lui fait lire
+void initialiseStoichiometricMatrix(Reseau & reseau, vector<string> lines) // reseau est passé en référence ici (modifier la valeur de reseau dans la fonction modifie aussi sa valeur dans la fonction principale)
 {
     
     vector<Reaction*> reac;
@@ -54,12 +65,12 @@ void initialiseStoichiometricMatrix(Reseau & reseau, vector<string> lines) // ve
             {
                 if (!element.empty()) // si ce header n'est pas vide ?
                 {
-                    Reaction * newreac = new Reaction(); // initialisation du constructeur // pointeur vers un objet Reaction construit avec le constructeur par défaut
+                    Reaction * newreac = new Reaction(element); // initialisation du constructeur // pointeur vers un objet Reaction construit avec le constructeur qui rentre seulement les noms
                     reac.push_back(newreac); // on ajoute ce pointeur dans le vecteur qui convient (aucune info sur la réaction pour l'instant)
                 }
                     
             }
-        } // end j == 0
+        } // end j == 1
         else // entities car à la ligne suivante on arrive sur les chaînes de caractères des entités
         {
             int compteur=0;
@@ -105,7 +116,7 @@ void initialiseStoichiometricMatrix(Reseau & reseau, vector<string> lines) // ve
 void initialiseEntities(Reseau& reseau, vector<string> lines)
 {
 
-    for (size_t j=0; j < lines.size(); j++){
+    for (size_t j=1; j < lines.size(); j++){ // on commence à 1 pour exclure le header
         
         // read line that is comma separated
         string line = lines[j];
@@ -121,7 +132,7 @@ void initialiseEntities(Reseau& reseau, vector<string> lines)
         int entindex = findEntityByName(reseau.entites, name); // est-ce qu'il y a bien correspondance entre les entités de la matrice et les entités de la partie entités
         if (entindex<0)
         {
-            cout << "Entity nout found !! --> " << name << endl;
+            cout << "Entity not found !! --> " << name << endl;
             throw runtime_error("Entity not found by name");
         }
         
@@ -134,6 +145,37 @@ void initialiseEntities(Reseau& reseau, vector<string> lines)
         reseau.entites[entindex]->effectif = effectif;
         reseau.entites[entindex]->energie_libre = energie_libre;
         reseau.entites[entindex]->concentration_ext = con_ext;
+    }
+    
+
+}
+
+void initialiseReactions(Reseau& reseau, vector<string> lines)
+{
+
+    for (size_t j=1; j < lines.size(); j++){ // on commence à 1 pour exclure le header
+        
+        // read line that is comma separated
+        string line = lines[j];
+        stringstream ss(line);
+        string name, Ea;
+
+        // Read model and skip unwanted columns
+        getline(ss, name, ',');
+        getline(ss, Ea, ',');
+        
+        int entindex = findReactionByName(reseau.reactions, name);
+        if (entindex<0)
+        {
+            cout << "Reaction not found !! --> " << name << endl;
+            throw runtime_error("Reaction not found by name");
+        }
+        
+        // Convert variables string to double
+        double activation_energy = stod(Ea);
+        
+        //On retrouve la réaction correspondante par son nom dans la partie Reactions et on récupère ses attributs
+        reseau.reactions[entindex]->E_a = activation_energy;
     }
     
 
@@ -168,57 +210,60 @@ Reseau initialiseReactionNetwork(string inputnetwork){
         
     }
     
-    vector<string> lines_matrix, lines_entites, lines_reactions; // les lignes qui correspondent à chaque partie 
-    for (size_t i=0; i<lines.size(); i++)
-    {
-        if (i<flag_entites && i>flag_matrix)
-            lines_matrix.push_back(lines[i]);
-        else if (i>flag_entites && i<flag_reactions)
-            lines_entites.push_back(lines[i]);
-        else
-            lines_reactions.push_back(lines[i]);
-    }
+    vector<string> lines_matrix, lines_entites, lines_reactions; // les lignes qui correspondent à chaque partie
     
+    for (size_t i=0; i<lines.size(); i++)
+        {
+            if (i<flag_entites && i>flag_matrix)
+                lines_matrix.push_back(lines[i]);
+            else if (i>flag_entites && i<flag_reactions)
+                lines_entites.push_back(lines[i]);
+            else if (i>flag_reactions)
+                lines_reactions.push_back(lines[i]);
+        }
     // init stoichiometric matrix of the reaction network
     try{
         initialiseStoichiometricMatrix(reseau, lines_matrix);
     }
-    catch( const std::runtime_error& error ){
+    catch( const runtime_error& error ){
         cout << error.what() << endl;
     }
     // init entities of the reaction network
     try{
         initialiseEntities(reseau, lines_entites);
     }
-    catch( const std::runtime_error& error ){
+    catch( const runtime_error& error ){
         cout << error.what() << endl;
     }
-    //initialiseReactions();
+    
+    // init reactions of the reaction network
+    try{
+        initialiseReactions(reseau, lines_reactions);
+    }
+    catch( const runtime_error& error ){
+        cout << error.what() << endl;
+    }
+    
     
     //for (size_t k=0; k<lines.size(); k++)
      //   cout << lines[k] << endl;
     
-   
-    
-    /*
-     define printReactionNetwerk(reac, ent);
-    cout << "added " << reac.size() << " reactions" << endl;
-    for (size_t i=0; i< ent.size(); i++){
-        cout << ent[i]->name << ",";
+    cout << "added " << reseau.reactions.size() << " reactions" << endl;
+    for (size_t i=0; i< reseau.entites.size(); i++){
+        cout << reseau.entites[i]->name << ",";
     }
     cout << endl;
     
-    for (size_t i=0; i< reac.size(); i++){
+    for (size_t i=0; i< reseau.reactions.size(); i++){
         cout << "reac #" << i << endl;
         cout << "reactifs :" << endl;
-        for (size_t j=0; j<reac[i]->reactifs.size(); j++)
-            cout << "\t" << reac[i]->reactifs[j]->name << endl;
+        for (size_t j=0; j<reseau.reactions[i]->reactifs.size(); j++)
+            cout << "\t" << reseau.reactions[i]->reactifs[j]->name << endl;
         cout << "produits :" << i << endl;
-        for (size_t j=0; j<reac[i]->produits.size(); j++)
-            cout << "\t" << reac[i]->produits[j]->name << endl;
+        for (size_t j=0; j<reseau.reactions[i]->produits.size(); j++)
+            cout << "\t" << reseau.reactions[i]->produits[j]->name << endl;
     }
     cout << endl;
-    */
     
     return reseau;
 }
@@ -267,9 +312,7 @@ int main(int argc,char* argv[]) { // for arguments
         }
       }
 
-  
-    
-    
+    /*
     // File_entites to read
     vector<string> file_entites = {"entites - Feuille 1.csv"};
 
@@ -291,7 +334,7 @@ int main(int argc,char* argv[]) { // for arguments
 
         // Read model and skip unwanted columns
         getline(ss, name, ',');
-        getline(ss, number, ',');
+        //getline(ss, number, ',');
         getline(ss, free_energy, ',');
         getline(ss, concentration_ext, ',');
 
@@ -304,6 +347,8 @@ int main(int argc,char* argv[]) { // for arguments
         entites.push_back(Entite (name, effectif, energie_libre, con_ext));
     }
 }
+     
+     */
 
     //double freq_fix_mut=0.0;
     int nRuns = 1;
@@ -315,7 +360,7 @@ int main(int argc,char* argv[]) { // for arguments
     vector<double> x ; // vector x to keep entities concentrations
     vector <vector<double>> propensions;
     
-    vector<Entite> entites_init = entites;
+    vector<Entite*> entites_init = reseau.entites;
     
     // Par défaut, rand() fixe la graine (même résultat à chaque simulation)
     // Donc srand pour ne pas fixer la graine
@@ -336,18 +381,33 @@ int main(int argc,char* argv[]) { // for arguments
     
     double atot, t, tau, somme;
     unsigned mu; // unsigned pour entiers non négatifs
+    
+    // Sauvegarde des conditions initiales (PAS des pointeurs !) pour les effectifs (seulement ce dont on a besoin)
+    vector<double> effectifs_init;
+
+    for (auto e : reseau.entites){
+        effectifs_init.push_back(e->effectif);
+    }
         
         for (int i=0;i < nRuns; i++){
             
             // Initialisation des vecteurs pour les prochains runs
             
-            entites = entites_init;
+            for (size_t i = 0; i < reseau.entites.size(); i++){
+                   reseau.entites[i]->effectif = effectifs_init[i];
+               }
+            
+            reseau.entites = entites_init;
             
             x.clear();
             propensions.clear();
             etats.clear();
+            temps.clear();
             
             vector <double> r = {0.0, 0.0}; // initialisation pour les nombres aléatoires
+            
+            
+            /*
             
             //declarer des pointeurs vers les entites
             Entite* A=&entites[0];
@@ -362,38 +422,33 @@ int main(int argc,char* argv[]) { // for arguments
             Entite* CBC=&entites[9];
             Entite* CBCB=&entites[10];
             
-            // Création des objets de la classe Réaction
-            // Objets stockés dans un vecteur
-            
-            // Reaction AB+A=ABA
-            // Reaction ABA+B=ABAB
-            // Reaction ABAB=2AB
-            
             vector<Reaction> reactions = {
-                Reaction({A,AB}, {ABA}, 0.0),
-                Reaction({ABA, B}, {ABAB}, 0.0),
-                Reaction({ABAB}, {AB, AB}, 0.0),
-                Reaction({AB, C}, {ABC}, 5.0), // réactions de mutation
-                Reaction({ABC, B}, {ABCB}, 0.0),
-                Reaction({ABCB}, {AB, CB}, 0.0),
-                Reaction({CB, C}, {CBC}, 0.0),// réactions du cycle mutant
-                Reaction({CBC,B}, {CBCB}, 0.0),
-                Reaction({CBCB}, {CB,CB}, 0.0)
+                1 Reaction({A,AB}, {ABA}, 0.0),
+                2 Reaction({ABA, B}, {ABAB}, 0.0),
+                3 Reaction({ABAB}, {AB, AB}, 0.0),
+                4 Reaction({AB, C}, {ABC}, 5.0), // réactions de mutation
+                5 Reaction({ABC, B}, {ABCB}, 0.0),
+                6 Reaction({ABCB}, {AB, CB}, 0.0),
+                7 Reaction({CB, C}, {CBC}, 0.0),// réactions du cycle mutant
+                8 Reaction({CBC,B}, {CBCB}, 0.0),
+                9 Reaction({CBCB}, {CB,CB}, 0.0)
             };
             
+            */
+             
             // Définition des vecteurs pour stocker les résultats de la dynamique
             
             temps = {0.0}; // initialisation du vecteur temps
             
-            for (const auto& e : entites){
-                x.push_back(e.effectif/V);
+            for (const auto& e : reseau.entites){
+                x.push_back(e->effectif/V);
             }
             
             etats = {x}; // vecteur double états pour stocker tous les x
             
             
             // Initialisation du vecteur des propensions de réactions du cycle
-            int nb_events = 2*reactions.size() + 2*entites.size();
+            int nb_events = 2*reseau.reactions.size() + 2*reseau.entites.size();
             vector <double> a (nb_events);
             
             // Algo Gillespie
@@ -406,19 +461,19 @@ int main(int argc,char* argv[]) { // for arguments
                 // Calcul des propensions de réaction (vitesses des réactions)
                 // On distingue sens direct et sens inverse car on ne peut pas avoir de propensions négatives
                 size_t i;
-                for (i=0; i < reactions.size(); i++){ // car on cherche chaque objet dans la liste reactions
+                for (i=0; i < reseau.reactions.size(); i++){ // car on cherche chaque objet dans la liste reactions
                     //cout << i <<endl;
-                    a[2*i]=reactions[i].vitesse(true, V); // On divise bien par le volume dans les propensions (voir méthode vitesse dans classe Reaction)
-                    a[2*i+1]=reactions[i].vitesse(false, V);
+                    a[2*i]=reseau.reactions[i]->vitesse(true, V); // On divise bien par le volume dans les propensions (voir méthode vitesse dans classe Reaction)
+                    a[2*i+1]=reseau.reactions[i]->vitesse(false, V);
                 }
                 
                 // A la fin de cette boucle, i = reaction.size() - 1 cad ici 2
                 
                 // Calcul des propensions de création(ou entrée) et de destruction(ou sortie)
                 
-                for (size_t j=0; j < entites.size(); j++){
-                    a[2*i+2*j]= entites[j].concentration_ext*V*p_renouvelé; // on parcourt tout le tableau donc on doit repartir à partir de 2*i cad 2*(reactions.size()-1)
-                    a[2*i+2*j+1]= V*p_renouvelé*entites[j].effectif/V; // les Vtot s'annulent
+                for (size_t j=0; j < reseau.entites.size(); j++){
+                    a[2*i+2*j]= reseau.entites[j]->concentration_ext*V*p_renouvelé; // on parcourt tout le tableau donc on doit repartir à partir de 2*i cad 2*(reactions.size()-1)
+                    a[2*i+2*j+1]= V*p_renouvelé*reseau.entites[j]->effectif/V; // les Vtot s'annulent
                     
                 }
                 
@@ -454,16 +509,16 @@ int main(int argc,char* argv[]) { // for arguments
                 }
                 // Une fois la réaction choisie, on change le vecteur x du nombre d'entités
                 
-                if (mu < 2*reactions.size()){ // Si on se trouve dans la partie du segment concernant les réactions
+                if (mu < 2*reseau.reactions.size()){ // Si on se trouve dans la partie du segment concernant les réactions
                     int dir=(mu%2==0)?1:-1; // mu pair, dir=1 sinon dir=-1
                     int idx = mu/2;
                     
-                    for (const auto& reac : reactions[idx].reactifs){ // Rappel : pointeurs vers objets Entite dans réactif
+                    for (const auto& reac : reseau.reactions[idx]->reactifs){ // Rappel : pointeurs vers objets Entite dans réactif
                         reac->effectif+=-dir; // si pair, sens direct, donc consommation des réactifs
                         
                     }
                     
-                    for (const auto& prod : reactions[idx].produits){
+                    for (const auto& prod : reseau.reactions[idx]->produits){
                         prod->effectif+=dir; // si impair, sens indirect, donc production des produits
                     }
                     
@@ -472,13 +527,13 @@ int main(int argc,char* argv[]) { // for arguments
                 // On commence donc à mu = 2*reactions.size()
                 else {
                     int dir=(mu%2==0)?1:-1;// si pair, création sinon destruction
-                    int idx = mu - 2*reactions.size(); // on reprend à 0 après les réactions
+                    int idx = mu - 2*reseau.reactions.size(); // on reprend à 0 après les réactions
                     idx = idx/2; // on retrouve l'indice de l'entité
-                    entites[idx].effectif+=dir;
+                    reseau.entites[idx]->effectif+=dir;
                 }
                 
-                for (size_t i=0; i < entites.size(); i++){
-                    x[i]=entites[i].effectif/V;
+                for (size_t i=0; i < reseau.entites.size(); i++){
+                    x[i]=reseau.entites[i]->effectif/V;
                     
                 }
                 
