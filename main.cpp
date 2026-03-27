@@ -53,6 +53,10 @@ return index;
 
 void initialiseStoichiometricMatrix(Reseau & reseau, vector<string> lines) // reseau est passé en référence ici (modifier la valeur de reseau dans la fonction modifie aussi sa valeur dans la fonction principale)
 {
+        //cout << "---initialiseMatrix---"<< endl;
+        //for (auto & el : lines)
+        //cout << el << endl;
+
     
     vector<Reaction*> reac;
     vector<Entite*> ent;
@@ -109,12 +113,28 @@ void initialiseStoichiometricMatrix(Reseau & reseau, vector<string> lines) // re
     
     reseau.entites = ent;
     reseau.reactions = reac;
+
+    //debugging
+    //cout << "Reactions:" << endl;
+    //for (auto & r : reac)
+    //{
+    //    cout << r->name << ": ";
+    //    for (auto & e : r->reactifs)
+    //        cout << " " << e->name;
+    //    cout << " --> ";
+    //    for (auto & e : r->produits)
+    //        cout << " " << e->name;
+    //    cout << endl; 
+    //}
     
 }
 
 
 void initialiseEntities(Reseau& reseau, vector<string> lines)
 {
+    //cout << "---initialiseEntities---"<< endl;
+    //for (auto & el : lines)
+    //    cout << el << endl;
 
     for (size_t j=1; j < lines.size(); j++){ // on commence à 1 pour exclure le header
         
@@ -147,11 +167,19 @@ void initialiseEntities(Reseau& reseau, vector<string> lines)
         reseau.entites[entindex]->concentration_ext = con_ext;
     }
     
+    // debugging
+    //for (auto & e : reseau.entites)
+    //{
+    //    cout << e->name << ".\tNumber : " << e->effectif << "\t. free energy : " << e->energie_libre   << ".\tc_ext= " << e->concentration_ext << endl; 
+    //}
 
 }
 
 void initialiseReactions(Reseau& reseau, vector<string> lines)
 {
+    //cout << "---initialiseReactions---"<< endl;
+    //for (auto & el : lines)
+    //    cout << el << endl;
 
     for (size_t j=1; j < lines.size(); j++){ // on commence à 1 pour exclure le header
         
@@ -178,6 +206,11 @@ void initialiseReactions(Reseau& reseau, vector<string> lines)
         reseau.reactions[entindex]->E_a = activation_energy;
     }
     
+    // for debugging
+    //for (auto & r : reseau.reactions)
+   // {
+   //     cout << r->name << ".\tEa : " << r->E_a << endl; 
+   // }
 
 }
 
@@ -245,56 +278,100 @@ Reseau initialiseReactionNetwork(string inputnetwork){
     }
     
     
-    //for (size_t k=0; k<lines.size(); k++)
-     //   cout << lines[k] << endl;
     
-    cout << "added " << reseau.reactions.size() << " reactions" << endl;
-    for (size_t i=0; i< reseau.entites.size(); i++){
-        cout << reseau.entites[i]->name << ",";
-    }
-    cout << endl;
-    
-    for (size_t i=0; i< reseau.reactions.size(); i++){
-        cout << "reac #" << i << endl;
-        cout << "reactifs :" << endl;
-        for (size_t j=0; j<reseau.reactions[i]->reactifs.size(); j++)
-            cout << "\t" << reseau.reactions[i]->reactifs[j]->name << endl;
-        cout << "produits :" << i << endl;
-        for (size_t j=0; j<reseau.reactions[i]->produits.size(); j++)
-            cout << "\t" << reseau.reactions[i]->produits[j]->name << endl;
-    }
-    cout << endl;
-    
+
     return reseau;
 }
+
+
+
+
+
+void printReactionNetwork(Reseau * reseau)
+{
+    cout << "---- Printing Reaction Network ----" << endl;
+
+    // print reactions in the form 'X  Y --> Z'
+    cout << "Reactions stoichiometry:" << endl;
+    for (auto & r : reseau->reactions)
+    {
+        cout << r->name << ": ";
+        for (auto & e : r->reactifs)
+            cout << " " << e->name;
+        cout << " --> ";
+        for (auto & e : r->produits)
+            cout << " " << e->name;
+        cout << endl; 
+    }
+    cout << endl;
+
+
+    cout << "Entity properties" << endl;
+    for (auto & e : reseau->entites)
+    {
+        cout << e->name << ".\tNumber : " << e->effectif << "\t. free energy : " << e->energie_libre   << ".\tc_ext= " << e->concentration_ext << endl; 
+    }
+
+
+    cout << "\nReactions properties" << endl;
+    for (auto & r : reseau->reactions)
+    {
+        cout << r->name << ".\tEa : " << r->E_a << endl; 
+    }
+
+}
+
+
+
+
+
+
+
+
+
+
 
 // Autocatalytic cycle AB
 
 int main(int argc,char* argv[]) { // for arguments
     
     Reseau reseau;
+    bool verbose = false;
     
     const struct option longopts[] =
       {
-        {"reseau",   required_argument,   0, 'r'},// on met le nom du fichier qui correspond au réseau en entrée en argument
-        {"help",      no_argument,        0, 'h'},
+        {"reseau",   required_argument,  0, 'r'},// on met le nom du fichier qui correspond au réseau en entrée en argument
+        {"tmax",     required_argument,  0, 't'},
+        {"verbose",  no_argument,        0, 'v'},
+        {"help",     no_argument,        0, 'h'},
         {0,0,0,0},
       };
 
       int index;
       int iarg=0;
 
+      double tmax = 1000; // par défaut c'est ce temps maximal
+
       //turn off getopt error message
       opterr=1;
 
       while(iarg != -1)
       {
-        iarg = getopt_long(argc, argv, "r:h", longopts, &index);
+        iarg = getopt_long(argc, argv, "r:t:hv", longopts, &index);
 
         switch (iarg)
         {
-          case 'h':
-            std::cout << "You hit help" << std::endl;
+        case 'h':
+            //std::cout << "You hit help" << std::endl;
+            // printHelp(); // possibulité de coder une fonction qui explique comment se servir du programme.
+            break;
+
+        case 'v':
+            verbose = true;
+            break;
+
+        case 't':
+            tmax = stod(optarg);
             break;
 
           case 'r':
@@ -312,43 +389,10 @@ int main(int argc,char* argv[]) { // for arguments
         }
       }
 
-    /*
-    // File_entites to read
-    vector<string> file_entites = {"entites - Feuille 1.csv"};
 
-    // List to store all entites data
-    vector<Entite> entites;
+      if (verbose)
+        printReactionNetwork(&reseau);
 
-
-    for (const auto& filename : file_entites) {
-    ifstream csv_file(filename);
-    string line;
-
-    // Skip the header line
-    getline(csv_file, line);
-
-    // Read rows with entites data
-    while (getline(csv_file, line)) {
-        stringstream ss(line);
-        string name, number, free_energy, concentration_ext;
-
-        // Read model and skip unwanted columns
-        getline(ss, name, ',');
-        //getline(ss, number, ',');
-        getline(ss, free_energy, ',');
-        getline(ss, concentration_ext, ',');
-
-        // Convert variables string to double
-        double effectif = stod(number);
-        double energie_libre = stod(free_energy);
-        double con_ext = stod(concentration_ext);
-
-        // Add entite to the vector
-        entites.push_back(Entite (name, effectif, energie_libre, con_ext));
-    }
-}
-     
-     */
 
     //double freq_fix_mut=0.0;
     int nRuns = 1;
@@ -373,11 +417,7 @@ int main(int argc,char* argv[]) { // for arguments
     double p_renouvelé = 0.001; // part de volume renouvelé à l'entrée et à la sortie du système
     
     
-    double tmax = 1000; // par défaut c'est ce temps maximal
-    if (argc > 1){
-        tmax=stod(argv[1]);
-        
-    }
+    
     
     double atot, t, tau, somme;
     unsigned mu; // unsigned pour entiers non négatifs
