@@ -15,8 +15,15 @@
 using namespace std;
 
 
-bool isValidInteger(const string& s)
+bool isValidInteger(string& s)
 {
+    // better way : trim input character with spaces, new lines...
+    if (s.find('\r') != s.npos)
+    {
+        int k = s.find('\r');
+        s = s.erase(k, 1);
+    }
+    
     return( strspn( s.c_str(), "-0123456789" ) == s.size() );
 }
 
@@ -53,9 +60,9 @@ return index;
 
 void initialiseStoichiometricMatrix(Reseau & reseau, vector<string> lines) // reseau est passé en référence ici (modifier la valeur de reseau dans la fonction modifie aussi sa valeur dans la fonction principale)
 {
-        //cout << "---initialiseMatrix---"<< endl;
-        //for (auto & el : lines)
-        //cout << el << endl;
+        cout << "---initialiseMatrix---"<< endl;
+        for (auto & el : lines)
+            cout << el << endl;
 
     
     vector<Reaction*> reac;
@@ -69,12 +76,13 @@ void initialiseStoichiometricMatrix(Reseau & reseau, vector<string> lines) // re
             {
                 if (!element.empty()) // si ce header n'est pas vide ?
                 {
+                    cout << "Init reaction with name : " << element << endl;
                     Reaction * newreac = new Reaction(element); // initialisation du constructeur // pointeur vers un objet Reaction construit avec le constructeur qui rentre seulement les noms
                     reac.push_back(newreac); // on ajoute ce pointeur dans le vecteur qui convient (aucune info sur la réaction pour l'instant)
                 }
                     
             }
-        } // end j == 1
+        } // end j == 0
         else // entities car à la ligne suivante on arrive sur les chaînes de caractères des entités
         {
             int compteur=0;
@@ -83,8 +91,9 @@ void initialiseStoichiometricMatrix(Reseau & reseau, vector<string> lines) // re
             while (getline(ss, element, ','))
             {
                 if (compteur==0){ // colonne avec les noms des entités
-                    Entite * newentity = new Entite(element);
+                    Entite * newentity = new Entite(element); // constructeur
                     ent.push_back(newentity);
+                    cout << "init entity with name " << element << endl;
                 }
                 else // autres colonnes
                 {
@@ -115,26 +124,27 @@ void initialiseStoichiometricMatrix(Reseau & reseau, vector<string> lines) // re
     reseau.reactions = reac;
 
     //debugging
-    //cout << "Reactions:" << endl;
-    //for (auto & r : reac)
-    //{
-    //    cout << r->name << ": ";
-    //    for (auto & e : r->reactifs)
-    //        cout << " " << e->name;
-    //    cout << " --> ";
-    //    for (auto & e : r->produits)
-    //        cout << " " << e->name;
-    //    cout << endl; 
-    //}
+    cout << "\nNetwork init as:" << endl;
+    for (auto & r : reac)
+    {
+        cout << r->name << ": ";
+        for (auto & e : r->reactifs) // rappel : les réactifs sont des pointeurs vers les entités
+            cout << " " << e->name; //
+        cout << " --> ";
+        for (auto & e : r->produits)
+            cout << " " << e->name;
+        cout << endl;
+    }
+    cout << endl;
     
 }
 
 
 void initialiseEntities(Reseau& reseau, vector<string> lines)
 {
-    //cout << "---initialiseEntities---"<< endl;
-    //for (auto & el : lines)
-    //    cout << el << endl;
+    cout << "---initialiseEntities---"<< endl;
+    for (auto & el : lines)
+        cout << el << endl;
 
     for (size_t j=1; j < lines.size(); j++){ // on commence à 1 pour exclure le header
         
@@ -166,12 +176,6 @@ void initialiseEntities(Reseau& reseau, vector<string> lines)
         reseau.entites[entindex]->energie_libre = energie_libre;
         reseau.entites[entindex]->concentration_ext = con_ext;
     }
-    
-    // debugging
-    //for (auto & e : reseau.entites)
-    //{
-    //    cout << e->name << ".\tNumber : " << e->effectif << "\t. free energy : " << e->energie_libre   << ".\tc_ext= " << e->concentration_ext << endl; 
-    //}
 
 }
 
@@ -204,13 +208,9 @@ void initialiseReactions(Reseau& reseau, vector<string> lines)
         
         //On retrouve la réaction correspondante par son nom dans la partie Reactions et on récupère ses attributs
         reseau.reactions[entindex]->E_a = activation_energy;
+        reseau.reactions[entindex]->updateReactionRates();
+        
     }
-    
-    // for debugging
-    //for (auto & r : reseau.reactions)
-   // {
-   //     cout << r->name << ".\tEa : " << r->E_a << endl; 
-   // }
 
 }
 
@@ -277,13 +277,8 @@ Reseau initialiseReactionNetwork(string inputnetwork){
         cout << error.what() << endl;
     }
     
-    
-    
-
     return reseau;
 }
-
-
 
 
 
@@ -312,23 +307,13 @@ void printReactionNetwork(Reseau * reseau)
         cout << e->name << ".\tNumber : " << e->effectif << "\t. free energy : " << e->energie_libre   << ".\tc_ext= " << e->concentration_ext << endl; 
     }
 
-
     cout << "\nReactions properties" << endl;
     for (auto & r : reseau->reactions)
     {
-        cout << r->name << ".\tEa : " << r->E_a << endl; 
+        cout << r->name << ".\tEa : " << r->E_a << ".\tk+ : " << r->kforward << ".\tk- : " << r-> kbackward <<  endl; // PROBLEME : k valent 0 donc aucune réaction ne se produit
     }
 
 }
-
-
-
-
-
-
-
-
-
 
 
 // Autocatalytic cycle AB
@@ -336,7 +321,7 @@ void printReactionNetwork(Reseau * reseau)
 int main(int argc,char* argv[]) { // for arguments
     
     Reseau reseau;
-    bool verbose = false;
+    bool verbose = true;
     
     const struct option longopts[] =
       {
@@ -375,12 +360,12 @@ int main(int argc,char* argv[]) { // for arguments
             break;
 
           case 'r':
-            std::cout << "You hit reaction : " << optarg << std::endl; // si on a bien spécifié un réseau, on lance l'initialisation du réseau
+            cout << "You hit reaction : " << optarg << endl; // si on a bien spécifié un réseau, on lance l'initialisation du réseau
             try
             {
                 reseau = initialiseReactionNetwork(string(optarg));
             }
-            catch( const std::runtime_error& error )
+            catch( const runtime_error& error )
             {
                 cout << error.what() << endl;
             }
@@ -416,9 +401,6 @@ int main(int argc,char* argv[]) { // for arguments
     double V =300; // Volume total
     double p_renouvelé = 0.001; // part de volume renouvelé à l'entrée et à la sortie du système
     
-    
-    
-    
     double atot, t, tau, somme;
     unsigned mu; // unsigned pour entiers non négatifs
     
@@ -436,8 +418,6 @@ int main(int argc,char* argv[]) { // for arguments
             for (size_t i = 0; i < reseau.entites.size(); i++){
                    reseau.entites[i]->effectif = effectifs_init[i];
                }
-            
-            reseau.entites = entites_init;
             
             x.clear();
             propensions.clear();
@@ -662,6 +642,12 @@ int main(int argc,char* argv[]) { // for arguments
         }
         cout << "} \n";
         
+    }
+    
+    for (size_t k=0; k < reseau.reactions.size(); k++){
+        for (const auto& r : reseau.reactions[k]->produits){
+            cout << r->name << ",";
+        }
     }
     //cout << "Fréquence de fixation de la mutation :" << (double)freq_fix_mut / nRuns << endl ;
     //cout << "Temps moyen de fixation sur les runs : "<< (double)temps_fix / (freq_fix_mut) << endl ;

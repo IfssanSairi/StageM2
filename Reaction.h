@@ -22,6 +22,7 @@ class Reaction {
     Reaction(string n);
     Reaction(string n, vector<Entite*> r, vector<Entite*> p, double E);
     
+    void updateReactionRates();
     void addReactant(Entite*);
     void addProduct(Entite*);
     

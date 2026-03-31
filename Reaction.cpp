@@ -14,20 +14,25 @@ Reaction :: Reaction (string n, vector<Entite*> r, vector<Entite*> p, double E){
     
     //kforward et kbackward sont bien des attributs, mais non explicités en arguments dans le constructeur
     
-    if (DeltaG() <= 0){
-        kforward = exp(-E_a);
-        kbackward = exp(-E_a - abs(DeltaG())) ;
-    }
-    else {
-        kforward = exp(-E_a - abs(DeltaG()));
-        kbackward = exp(-E_a);
-    }
+    kforward =0; // valeur par défaut
+    kbackward =0; // valeur par défaut
 }
 
 Reaction :: Reaction(string n){
     name =n;
 }
 
+void Reaction::updateReactionRates() {
+    double deltaG = DeltaG();
+
+    if (deltaG <= 0) {
+        kforward  = exp(-E_a);
+        kbackward = exp(-E_a - abs(deltaG));
+    } else {
+        kforward  = exp(-E_a - abs(deltaG));
+        kbackward = exp(-E_a);
+    }
+}
 
 void Reaction::addReactant(Entite* e){
     reactifs.push_back(e);
