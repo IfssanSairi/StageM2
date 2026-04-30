@@ -23,6 +23,8 @@ Reaction :: Reaction(string n){
 }
 
 void Reaction::updateReactionRates() {
+    cout << "Reaction::updateReactionRates()" << endl;
+    cout << "k+ k- = " << kforward << " " << kbackward << endl;
     double deltaG = DeltaG();
 
     if (deltaG <= 0) {
@@ -32,40 +34,42 @@ void Reaction::updateReactionRates() {
         kforward  = exp(-E_a - abs(deltaG));
         kbackward = exp(-E_a);
     }
+    cout << "bis k+ k- = " << kforward << " " << kbackward << endl;
+
 }
 
 void Reaction::addReactant(Entite* e){
     reactifs.push_back(e);
-    
-    
 }
 
 void Reaction::addProduct(Entite* e){
     produits.push_back(e);
-    
     
 }
 
 
 double Reaction::vitesse(bool isForward, double V){
     double v = isForward?kforward:kbackward;
+    vector<Entite *> *vecEnt=isForward?&reactifs:&produits; // Si réaction forward, vecteur *vecEnt devient le vecteur des réactifs, sinon dans celui des produits
+    
     Entite* lastreac = NULL;
     int compteur =0;
-    vector<Entite *> *vecEnt=isForward?&reactifs:&produits; // Si réaction forward, vecteur *vecEnt devient le vecteur des réactifs, sinon dans celui des produits
+    
     // pourquoi *vecEnt et pas simplement vecEnt
     for (const auto& er : *vecEnt){
-        if (er==lastreac){ // we assume that identical reactants are consecutive
-            compteur++;}
-        else {
-            compteur=0;
+        
+            if (er==lastreac){ // we assume that identical reactants are consecutive
+                compteur++;}
+            else {
+                compteur=0;
             }
             
-        if (er-> effectif <=0){
-            v*=0;
-        }
-        else {
-            v*= (er->effectif - compteur)/V;
-        }
+            if (er-> effectif <=0){
+                v*=0;
+            }
+            else {
+                v*= (er->effectif - compteur)/V;
+            }
         }
     return v*V;
     }

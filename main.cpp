@@ -10,9 +10,18 @@
 #include <string>
 #include <list>
 #include <getopt.h>
+//#include <boost/numeric/odeint.hpp>
 
+//using namespace boost::numeric::odeint;
 
 using namespace std;
+
+
+void trimWithBadCharacters(std::string & str)
+{
+    while (str.find('\r') != str.npos)
+        str.erase( str.find('\r'));
+}
 
 
 bool isValidInteger(string& s)
@@ -50,6 +59,9 @@ int findReactionByName(vector<Reaction*> reactions, string target_name)
 {
     int index = -1;
     for (size_t k =0; k < reactions.size(); k++){
+        cout << "candidate: " << reactions[k]->name << endl;
+        if (reactions[k]->name.find('\r') != reactions[k]->name.npos)
+            cout << "WARNING" << endl;
         if (reactions[k]->name==target_name){ // entites est bien un vecteur qui contient des pointeurs
             index = k;
             break;
@@ -77,6 +89,7 @@ void initialiseStoichiometricMatrix(Reseau & reseau, vector<string> lines) // re
                 if (!element.empty()) // si ce header n'est pas vide ?
                 {
                     cout << "Init reaction with name : " << element << endl;
+                    trimWithBadCharacters(element);
                     Reaction * newreac = new Reaction(element); // initialisation du constructeur // pointeur vers un objet Reaction construit avec le constructeur qui rentre seulement les noms
                     reac.push_back(newreac); // on ajoute ce pointeur dans le vecteur qui convient (aucune info sur la réaction pour l'instant)
                 }
@@ -91,6 +104,7 @@ void initialiseStoichiometricMatrix(Reseau & reseau, vector<string> lines) // re
             while (getline(ss, element, ','))
             {
                 if (compteur==0){ // colonne avec les noms des entités
+                    trimWithBadCharacters(element);
                     Entite * newentity = new Entite(element); // constructeur
                     ent.push_back(newentity);
                     cout << "init entity with name " << element << endl;
@@ -181,7 +195,7 @@ void initialiseEntities(Reseau& reseau, vector<string> lines)
 
 void initialiseReactions(Reseau& reseau, vector<string> lines)
 {
-    //cout << "---initialiseReactions---"<< endl;
+    cout << "---initialiseReactions---"<< endl;
     //for (auto & el : lines)
     //    cout << el << endl;
 
@@ -208,6 +222,7 @@ void initialiseReactions(Reseau& reseau, vector<string> lines)
         
         //On retrouve la réaction correspondante par son nom dans la partie Reactions et on récupère ses attributs
         reseau.reactions[entindex]->E_a = activation_energy;
+        cout << "calling updateReactionRates()" << endl;
         reseau.reactions[entindex]->updateReactionRates();
         
     }
@@ -425,36 +440,6 @@ int main(int argc,char* argv[]) { // for arguments
             temps.clear();
             
             vector <double> r = {0.0, 0.0}; // initialisation pour les nombres aléatoires
-            
-            
-            /*
-            
-            //declarer des pointeurs vers les entites
-            Entite* A=&entites[0];
-            Entite* B=&entites[1];
-            Entite* C=&entites[2];
-            Entite* AB=&entites[3];
-            Entite* ABA=&entites[4];
-            Entite* ABAB=&entites[5];
-            Entite* ABC=&entites[6];
-            Entite* ABCB=&entites[7];
-            Entite* CB=&entites[8];
-            Entite* CBC=&entites[9];
-            Entite* CBCB=&entites[10];
-            
-            vector<Reaction> reactions = {
-                1 Reaction({A,AB}, {ABA}, 0.0),
-                2 Reaction({ABA, B}, {ABAB}, 0.0),
-                3 Reaction({ABAB}, {AB, AB}, 0.0),
-                4 Reaction({AB, C}, {ABC}, 5.0), // réactions de mutation
-                5 Reaction({ABC, B}, {ABCB}, 0.0),
-                6 Reaction({ABCB}, {AB, CB}, 0.0),
-                7 Reaction({CB, C}, {CBC}, 0.0),// réactions du cycle mutant
-                8 Reaction({CBC,B}, {CBCB}, 0.0),
-                9 Reaction({CBCB}, {CB,CB}, 0.0)
-            };
-            
-            */
              
             // Définition des vecteurs pour stocker les résultats de la dynamique
             
@@ -650,7 +635,6 @@ int main(int argc,char* argv[]) { // for arguments
         }
     }
     //cout << "Fréquence de fixation de la mutation :" << (double)freq_fix_mut / nRuns << endl ;
-    //cout << "Temps moyen de fixation sur les runs : "<< (double)temps_fix / (freq_fix_mut) << endl ;
     
     //if (runs.size()!=0){
         //for (size_t i=0; i < runs.size(); i++){
