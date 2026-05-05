@@ -395,8 +395,9 @@ int main(int argc,char* argv[]) { // for arguments
 
 
     //double freq_fix_mut=0.0;
-    int nRuns = 1;
+    int nRuns = 5;
     vector<int> runs;
+    //vector <int> config_count (128,0); // on crée un vecteur qui compte toutes les config possibles, ici 128 car 7 entités et 2 choix par entité
     vector <double> temps;
     vector <vector<double>> etats;
     vector<vector<vector<double>>> all_etats;
@@ -552,20 +553,38 @@ int main(int argc,char* argv[]) { // for arguments
             
         } // fin boucle Run
     
-    //for (size_t run = 0; run < all_etats.size(); run++) {
-        //const auto& etat_final = all_etats[run].back(); // on prend le dernier vecteur du vecteur de tous les états pour un run donné
-        //if (etat_final[3] ==0 && etat_final[8] !=0) {
-            //freq_fix_mut++;
-            //temps_fix+= all_temps[run][];
-        //}
-    //}
+    int idx_AB = findEntityByName(reseau.entites, "AB");
+    int idx_CB = findEntityByName(reseau.entites, "CB");
+    int idx_DB = findEntityByName(reseau.entites, "DB");
+    int idx_EB = findEntityByName(reseau.entites, "EB");
+    int idx_FB = findEntityByName(reseau.entites, "FB");
+    int idx_GB = findEntityByName(reseau.entites, "GB");
+    int idx_HB = findEntityByName(reseau.entites, "HB");
+    
+    vector<int> indices = {idx_AB,idx_CB,idx_DB,idx_EB,idx_FB, idx_GB, idx_HB};
+    
+    map<vector<bool>, int> count_config;
+    
+    for (size_t run = 0; run < all_etats.size(); run++) {
+        const auto& etat_final = all_etats[run].back(); // on prend le dernier vecteur du vecteur de tous les états pour un run donné
+        vector<bool> config;
+        config.reserve(indices.size()); // vecteur de booléens qui renseigne sur les états finaux
+        
+        for (int idx : indices)
+        {
+            config.push_back(etat_final[idx] > 0); // l'inégalité transforme la valeur en booléen
+        }
+
+        count_config[config]++;
+
+    }
 
     // Création d'un fichier csv
     
     ofstream file("gillespie.csv");
 
     
-    file << "Run,Temps,A,B,C,AB,ABA,ABAB,ABC,ABCB,CB,CBC,CBCB \n"; // en-tête
+    file << "Run,Temps,A,B,C,D,E,F,G,H,AB,ABA,ABAB,ABC,ABCB,CB,CBC,CBCB,ABD,ABDB,DB,DBD,DBDB,CBE,CBEB,EB,EBE,EBEB,CBF,CBFB,FB,FBF,FBFB,DBG,DBGB,GB,GBG,GBGB,DBH,DBHB,HB,HBH,HBHB \n"; // en-tête
     
     if (!file.is_open()) {
             cerr << "Failed to open file!" << endl;
@@ -629,11 +648,25 @@ int main(int argc,char* argv[]) { // for arguments
         
     }
     
-    for (size_t k=0; k < reseau.reactions.size(); k++){
-        for (const auto& r : reseau.reactions[k]->produits){
-            cout << r->name << ",";
+    for (const auto& config : count_config) {
+        cout << "Configuration (AB,CB,DB,EB,FB,GB,HB):";
+
+        for (bool b : config.first) {
+            cout << b << ",";
         }
+
+        cout << " Occurrence: " << config.second << "\n";
     }
+    
+    
+    //for (size_t i=0; i < config_count.size(); i++){
+        //if (config_count[i]!=0){
+            //cout << "Configuration n°:" << i << "\n";
+            //cout << "Nombre de runs dans cette configuration:" << config_count[i] << "\n";
+        //}
+   // }
+    
+    
     //cout << "Fréquence de fixation de la mutation :" << (double)freq_fix_mut / nRuns << endl ;
     
     //if (runs.size()!=0){
