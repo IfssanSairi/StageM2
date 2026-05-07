@@ -10,9 +10,9 @@
 #include <string>
 #include <list>
 #include <getopt.h>
-//#include <boost/numeric/odeint.hpp>
+#include <boost/numeric/odeint.hpp>
 
-//using namespace boost::numeric::odeint;
+using namespace boost::numeric::odeint;
 
 using namespace std;
 
@@ -40,6 +40,8 @@ struct Reseau // classe sans méthodes pour obtenir les entités et les réactio
 {
     vector<Entite*> entites ; // pointeurs vers objets de type Entite
     vector<Reaction*> reactions; // pointeurs vers objets de type Reaction
+    // Matrice stoechiométrique pour le code déterministe
+    vector<vector<int>> M;
 };
 
 
@@ -75,12 +77,14 @@ void initialiseStoichiometricMatrix(Reseau & reseau, vector<string> lines) // re
         cout << "---initialiseMatrix---"<< endl;
         for (auto & el : lines)
             cout << el << endl;
-
     
+    vector<vector<int>> matrix (lines.size() - 1, vector<int> (0)); // nb lignes = nb entités donc on skip le header
+
     vector<Reaction*> reac;
     vector<Entite*> ent;
     
     for (size_t j=0; j < lines.size();j++){
+        vector<int> row;
         if (j==0){ // 1ère ligne avec les noms des réactions (R1, R2, R3...)
             string element;
             stringstream ss(lines[j]);
@@ -114,6 +118,7 @@ void initialiseStoichiometricMatrix(Reseau & reseau, vector<string> lines) // re
                     if (!isValidInteger(element))
                         throw runtime_error("invalid integer entry.");
                     int s = atoi(element.c_str());
+                    row.push_back(s);
                     size_t index_reac = compteur - 1; // si on a des nb stoechio qui dépassent les colonnes réactions
                     if (index_reac>=reac.size())
                         throw runtime_error("Stoichiometric index out of reaction vector.");
@@ -131,11 +136,13 @@ void initialiseStoichiometricMatrix(Reseau & reseau, vector<string> lines) // re
                 }
                 compteur++;
             }
+            matrix[j-1]=row; // on remplit la matrice des rows
         }
     }
     
     reseau.entites = ent;
     reseau.reactions = reac;
+    reseau.M = matrix;
 
     //debugging
     cout << "\nNetwork init as:" << endl;
@@ -331,109 +338,150 @@ void printReactionNetwork(Reseau * reseau)
 }
 
 
+// Variables générales (déterministe et stochastique)
+
+double V =300; // Volume total
+double p_renouvelé = 0.001; // part de volume renouvelé à l'entrée et à la sortie du système
+
+Reseau reseau; // là on définit juste le réseau, on le remplit pas
+
+// On définit la fonction pour la résolution des équations différentielles
+
+void cycle(const vector<double>& y , vector<double> &dydt, double t){
+    vector<double> v (reseau.reactions.size(), 0);
+    size_t i;
+    for (i=0; i< reseau.reactions.size(); i++){
+        v[i]=reseau.reactions[i]->vitesse(true,false, V, y, reseau.entites) - reseau.reactions[i]->vitesse(false, false, V, y, reseau.entites);
+    }
+    for (size_t k=0; k < reseau.entites.size(); k++){
+        dydt[k]=0;
+        for (size_t j=0; j < reseau.reactions.size(); j++){
+            dydt[k]+= reseau.M[k][j] * v[j];
+        }
+        dydt[k] += reseau.entites[k]->concentration_ext*p_renouvelé - p_renouvelé*(y[k]);
+    }
+}
+
 // Autocatalytic cycle AB
 
 int main(int argc,char* argv[]) { // for arguments
     
-    Reseau reseau;
+    //Reseau reseau;
     bool verbose = true;
     
     const struct option longopts[] =
-      {
+    {
         {"reseau",   required_argument,  0, 'r'},// on met le nom du fichier qui correspond au réseau en entrée en argument
         {"tmax",     required_argument,  0, 't'},
+        {"gillespie",required_argument,  0, 'g'}, // on ajoute l'option gillespie
         {"verbose",  no_argument,        0, 'v'},
         {"help",     no_argument,        0, 'h'},
         {0,0,0,0},
-      };
-
-      int index;
-      int iarg=0;
-
-      double tmax = 1000; // par défaut c'est ce temps maximal
-
-      //turn off getopt error message
-      opterr=1;
-
-      while(iarg != -1)
-      {
+    };
+    
+    int index;
+    int iarg=0;
+    
+    double tmax = 1000; // par défaut c'est ce temps maximal
+    bool Gillespie = true; // par défaut
+    
+    //turn off getopt error message
+    opterr=1;
+    
+    while(iarg != -1)
+    {
         iarg = getopt_long(argc, argv, "r:t:hv", longopts, &index);
-
+        
         switch (iarg)
         {
-        case 'h':
-            //std::cout << "You hit help" << std::endl;
-            // printHelp(); // possibulité de coder une fonction qui explique comment se servir du programme.
-            break;
-
-        case 'v':
-            verbose = true;
-            break;
-
-        case 't':
-            tmax = stod(optarg);
-            break;
-
-          case 'r':
-            cout << "You hit reaction : " << optarg << endl; // si on a bien spécifié un réseau, on lance l'initialisation du réseau
-            try
+            case 'h':
+                //std::cout << "You hit help" << std::endl;
+                // printHelp(); // possibulité de coder une fonction qui explique comment se servir du programme.
+                break;
+                
+            case 'v':
+                verbose = true;
+                break;
+                
+            case 't':
+                tmax = stod(optarg);
+                break;
+                
+            case 'r':
+                cout << "You hit reaction : " << optarg << endl; // si on a bien spécifié un réseau, on lance l'initialisation du réseau
+                try
             {
-                reseau = initialiseReactionNetwork(string(optarg));
+                reseau = initialiseReactionNetwork(string(optarg)); // c'est vraiment ici qu'on remplit le réseau de réaction
             }
-            catch( const runtime_error& error )
+                catch( const runtime_error& error )
             {
                 cout << error.what() << endl;
             }
-            break;
-
+                break;
+            case 'g':
+            {
+                string val = optarg;
+                
+                if (val == "true")
+                    Gillespie = true;
+                else if (val == "false")
+                    Gillespie = false;
+                else
+                    throw runtime_error("Invalid value for --gillespie");
+                
+                break;
+            }
         }
-      }
-
-
-      if (verbose)
-        printReactionNetwork(&reseau);
-
-
-    //double freq_fix_mut=0.0;
-    int nRuns = 5;
-    vector<int> runs;
-    //vector <int> config_count (128,0); // on crée un vecteur qui compte toutes les config possibles, ici 128 car 7 entités et 2 choix par entité
-    vector <double> temps;
-    vector <vector<double>> etats;
-    vector<vector<vector<double>>> all_etats;
-    vector<vector<double>> all_temps;
-    vector<double> x ; // vector x to keep entities concentrations
-    vector <vector<double>> propensions;
-    
-    vector<Entite*> entites_init = reseau.entites;
-    
-    // Par défaut, rand() fixe la graine (même résultat à chaque simulation)
-    // Donc srand pour ne pas fixer la graine
-    
-    srand(time(NULL));
-    
-    // Déclaration et définition des variables propres à l'algo Gillespie
-    
-    double V =300; // Volume total
-    double p_renouvelé = 0.001; // part de volume renouvelé à l'entrée et à la sortie du système
-    
-    double atot, t, tau, somme;
-    unsigned mu; // unsigned pour entiers non négatifs
-    
-    // Sauvegarde des conditions initiales (PAS des pointeurs !) pour les effectifs (seulement ce dont on a besoin)
-    vector<double> effectifs_init;
-
-    for (auto e : reseau.entites){
-        effectifs_init.push_back(e->effectif);
     }
+    
+    
+    if (verbose)
+        printReactionNetwork(&reseau);
+    
+    // Definition des vecteurs y et dydt
+    
+    vector<double> y(reseau.entites.size());
+    vector<double> dydt(reseau.entites.size());
+    
+    if (Gillespie){
+        
+        
+        //double freq_fix_mut=0.0;
+        int nRuns = 1;
+        vector<int> runs;
+        vector <double> temps;
+        vector <vector<double>> etats;
+        vector<vector<vector<double>>> all_etats;
+        vector<vector<double>> all_temps;
+        vector<double> x ; // vector x to keep entities concentrations
+        vector <vector<double>> propensions;
+        
+        vector<Entite*> entites_init = reseau.entites;
+        
+        // Par défaut, rand() fixe la graine (même résultat à chaque simulation)
+        // Donc srand pour ne pas fixer la graine
+        
+        srand(time(NULL));
+        
+        // Déclaration et définition des variables propres à l'algo Gillespie
+        
+        double atot, t, tau, somme;
+        unsigned mu; // unsigned pour entiers non négatifs
+        
+        // Sauvegarde des conditions initiales (PAS des pointeurs !) pour les effectifs (seulement ce dont on a besoin)
+        vector<double> effectifs_init;
+        
+        for (auto e : reseau.entites){
+            effectifs_init.push_back(e->effectif);
+        }
         
         for (int i=0;i < nRuns; i++){
             
             // Initialisation des vecteurs pour les prochains runs
             
             for (size_t i = 0; i < reseau.entites.size(); i++){
-                   reseau.entites[i]->effectif = effectifs_init[i];
-               }
+                reseau.entites[i]->effectif = effectifs_init[i];
+            }
             
             x.clear();
             propensions.clear();
@@ -441,7 +489,7 @@ int main(int argc,char* argv[]) { // for arguments
             temps.clear();
             
             vector <double> r = {0.0, 0.0}; // initialisation pour les nombres aléatoires
-             
+            
             // Définition des vecteurs pour stocker les résultats de la dynamique
             
             temps = {0.0}; // initialisation du vecteur temps
@@ -469,8 +517,8 @@ int main(int argc,char* argv[]) { // for arguments
                 size_t i;
                 for (i=0; i < reseau.reactions.size(); i++){ // car on cherche chaque objet dans la liste reactions
                     //cout << i <<endl;
-                    a[2*i]=reseau.reactions[i]->vitesse(true, V); // On divise bien par le volume dans les propensions (voir méthode vitesse dans classe Reaction)
-                    a[2*i+1]=reseau.reactions[i]->vitesse(false, V);
+                    a[2*i]=reseau.reactions[i]->vitesse(true, true, V, y, reseau.entites); // On divise bien par le volume dans les propensions (voir méthode vitesse dans classe Reaction)
+                    a[2*i+1]=reseau.reactions[i]->vitesse(false,true, V, y, reseau.entites);
                 }
                 
                 // A la fin de cette boucle, i = reaction.size() - 1 cad ici 2
@@ -479,7 +527,7 @@ int main(int argc,char* argv[]) { // for arguments
                 
                 for (size_t j=0; j < reseau.entites.size(); j++){
                     a[2*i+2*j]= reseau.entites[j]->concentration_ext*V*p_renouvelé; // on parcourt tout le tableau donc on doit repartir à partir de 2*i cad 2*(reactions.size()-1)
-                    a[2*i+2*j+1]= V*p_renouvelé*reseau.entites[j]->effectif/V; // les Vtot s'annulent
+                    a[2*i+2*j+1]= V*p_renouvelé*max(reseau.entites[j]->effectif/V,0.0); // les Vtot s'annulent
                     
                 }
                 
@@ -552,129 +600,165 @@ int main(int argc,char* argv[]) { // for arguments
             all_temps.push_back(temps);
             
         } // fin boucle Run
-    
-    int idx_AB = findEntityByName(reseau.entites, "AB");
-    int idx_CB = findEntityByName(reseau.entites, "CB");
-    int idx_DB = findEntityByName(reseau.entites, "DB");
-    int idx_EB = findEntityByName(reseau.entites, "EB");
-    int idx_FB = findEntityByName(reseau.entites, "FB");
-    int idx_GB = findEntityByName(reseau.entites, "GB");
-    int idx_HB = findEntityByName(reseau.entites, "HB");
-    
-    vector<int> indices = {idx_AB,idx_CB,idx_DB,idx_EB,idx_FB, idx_GB, idx_HB};
-    
-    map<vector<bool>, int> count_config;
-    
-    for (size_t run = 0; run < all_etats.size(); run++) {
-        const auto& etat_final = all_etats[run].back(); // on prend le dernier vecteur du vecteur de tous les états pour un run donné
-        vector<bool> config;
-        config.reserve(indices.size()); // vecteur de booléens qui renseigne sur les états finaux
         
-        for (int idx : indices)
-        {
-            config.push_back(etat_final[idx] > 0); // l'inégalité transforme la valeur en booléen
+        int idx_AB = findEntityByName(reseau.entites, "AB");
+        int idx_CB = findEntityByName(reseau.entites, "CB");
+        int idx_DB = findEntityByName(reseau.entites, "DB");
+        int idx_EB = findEntityByName(reseau.entites, "EB");
+        int idx_FB = findEntityByName(reseau.entites, "FB");
+        int idx_GB = findEntityByName(reseau.entites, "GB");
+        int idx_HB = findEntityByName(reseau.entites, "HB");
+        
+        vector<int> indices = {idx_AB,idx_CB,idx_DB,idx_EB,idx_FB, idx_GB, idx_HB};
+        
+        map<vector<bool>, int> count_config;
+        
+        for (size_t run = 0; run < all_etats.size(); run++) {
+            const auto& etat_final = all_etats[run].back(); // on prend le dernier vecteur du vecteur de tous les états pour un run donné
+            vector<bool> config;
+            config.reserve(indices.size()); // vecteur de booléens qui renseigne sur les états finaux
+            
+            for (int idx : indices)
+            {
+                config.push_back(etat_final[idx] > 0); // l'inégalité transforme la valeur en booléen
+            }
+            
+            count_config[config]++;
+            
         }
+        
+        // Création d'un fichier csv
+        
+        ofstream file("gillespie.csv");
 
-        count_config[config]++;
+        file << "Run,Temps";
+        for (size_t i = 0; i < reseau.entites.size(); ++i)
+            file << "," << reseau.entites[i]->name;
 
-    }
-
-    // Création d'un fichier csv
-    
-    ofstream file("gillespie.csv");
-
-    
-    file << "Run,Temps,A,B,C,D,E,F,G,H,AB,ABA,ABAB,ABC,ABCB,CB,CBC,CBCB,ABD,ABDB,DB,DBD,DBDB,CBE,CBEB,EB,EBE,EBEB,CBF,CBFB,FB,FBF,FBFB,DBG,DBGB,GB,GBG,GBGB,DBH,DBHB,HB,HBH,HBHB \n"; // en-tête
-    
-    if (!file.is_open()) {
+        file << '\n';
+        
+        //file << "Run,Temps,A,B,C,AB,ABA,ABAB,ABC,ABCB,CB,CBC,CBCB \n";
+        //file << "Run,Temps,A,B,C,D,E,F,G,H,AB,ABA,ABAB,ABC,ABCB,CB,CBC,CBCB,ABD,ABDB,DB,DBD,DBDB,CBE,CBEB,EB,EBE,EBEB,CBF,CBFB,FB,FBF,FBFB,DBG,DBGB,GB,GBG,GBGB,DBH,DBHB,HB,HBH,HBHB \n"; // en-tête
+        
+        if (!file.is_open()) {
             cerr << "Failed to open file!" << endl;
             return 1;
         }
-    
-    //vector<vector<double>> data ;
-    
-    //for (size_t k=0; k< etats.size(); k++){
+        
+        //vector<vector<double>> data ;
+        
+        //for (size_t k=0; k< etats.size(); k++){
         //vector <double> row;
         //row.push_back(temps[k]);
         //for (double x : etats[k]){
-            //row.push_back(x);
+        //row.push_back(x);
         //}
         //data.push_back(row);
-    //}
-        
-    //for (const auto& row : data) {
-            //for (size_t i = 0; i < row.size(); ++i) {
-                //file << row[i];
-                //if (i != row.size() - 1) file << ",";
-            //}
-                //file << "\n";
         //}
-    
-    for (size_t run = 0; run < all_etats.size(); run++){
-        for (size_t k = 0; k < all_etats[run].size(); k++){
-            file << run << "," << all_temps[run][k];
-            for (double v : all_etats[run][k]){
-                file << "," << v;
-            }
-            file << "\n";
-        }
-    }
-    
-    file.close();
-    cout << "CSV file created successfully." << endl;
-    
-    // Affichage Texte des résultats
-    
-    cout << "Temps : " << "Propensions : " << " Etats : \n ";
-    
-    
-    for (size_t k=0; k < etats.size(); k++){
-        cout << temps[k] << " ";
         
-        cout << "{";
-        for (double h : propensions[k]){
-                    
-                    cout << h << ",";
+        //for (const auto& row : data) {
+        //for (size_t i = 0; i < row.size(); ++i) {
+        //file << row[i];
+        //if (i != row.size() - 1) file << ",";
+        //}
+        //file << "\n";
+        //}
+        
+        for (size_t run = 0; run < all_etats.size(); run++){
+            for (size_t k = 0; k < all_etats[run].size(); k++){
+                file << run << "," << all_temps[run][k];
+                for (double v : all_etats[run][k]){
+                    file << "," << v;
                 }
-                cout << "} ";
+                file << "\n";
+            }
+        }
         
-        cout << "{";
-
-        for (double x : etats[k]){
+        file.close();
+        cout << "CSV file created successfully." << endl;
+        
+        // Affichage Texte des résultats
+        
+        cout << "Temps : " << "Propensions : " << " Etats : \n ";
+        
+        
+        for (size_t k=0; k < etats.size(); k++){
+            cout << temps[k] << " ";
             
-            cout << x << ",";
+            cout << "{";
+            for (double h : propensions[k]){
+                
+                cout << h << ",";
+            }
+            cout << "} ";
+            
+            cout << "{";
+            
+            for (double x : etats[k]){
+                
+                cout << x << ",";
+            }
+            cout << "} \n";
+            
         }
-        cout << "} \n";
         
-    }
-    
-    for (const auto& config : count_config) {
-        cout << "Configuration (AB,CB,DB,EB,FB,GB,HB):";
-
-        for (bool b : config.first) {
-            cout << b << ",";
+        for (const auto& config : count_config) {
+            cout << "Configuration (AB,CB,DB,EB,FB,GB,HB):";
+            
+            for (bool b : config.first) {
+                cout << b << ",";
+            }
+            
+            cout << " Occurrence: " << config.second << "\n";
         }
-
-        cout << " Occurrence: " << config.second << "\n";
-    }
-    
-    
-    //for (size_t i=0; i < config_count.size(); i++){
+        
+        
+        //for (size_t i=0; i < config_count.size(); i++){
         //if (config_count[i]!=0){
-            //cout << "Configuration n°:" << i << "\n";
-            //cout << "Nombre de runs dans cette configuration:" << config_count[i] << "\n";
+        //cout << "Configuration n°:" << i << "\n";
+        //cout << "Nombre de runs dans cette configuration:" << config_count[i] << "\n";
         //}
-   // }
-    
-    
-    //cout << "Fréquence de fixation de la mutation :" << (double)freq_fix_mut / nRuns << endl ;
-    
-    //if (runs.size()!=0){
+        // }
+        
+        
+        //cout << "Fréquence de fixation de la mutation :" << (double)freq_fix_mut / nRuns << endl ;
+        
+        //if (runs.size()!=0){
         //for (size_t i=0; i < runs.size(); i++){
-            //cout << runs[i] << ",";
-            
+        //cout << runs[i] << ",";
+        
         //}
         //cout << endl;
-    //}
-    return 0;
+        //}
+    } // fin de la condition if (Gillespie)
+    // Simulation déterministe:
+    else {
+        
+        for(size_t i=0;i<reseau.entites.size();i++){
+            y[i] = reseau.entites[i]->effectif/V; // concentration
+        }
+        
+        ofstream out("resultats.csv");
+        out << "Temps";
+        for (size_t i = 0; i < reseau.entites.size(); i++) out << "," << reseau.entites[i]->name;
+        out << "\n";
+        
+        auto observer = [&](const vector<double>& y, double t) {
+            out << t;
+            for (double val : y) out << "," << val;
+            out << "\n";
+        };
+        
+        // Résolution avec la fonction integrate
+        double dt = 0.1; // définition du pas de temps
+        
+        integrate_const(runge_kutta4<vector<double>>(),cycle,y,0.0,tmax,dt,observer);
+        
+        for (size_t k=0; k < reseau.entites.size(); k++){
+            for (size_t j=0; j < reseau.reactions.size(); j++){
+                cout << reseau.M[k][j] << " \n"[j == reseau.reactions.size()-1];
+            }
+        }
+        return 0;
+    }
 }

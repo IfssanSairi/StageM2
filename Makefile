@@ -2,7 +2,10 @@
 CXX = g++
 
 # Options de compilation
-CXXFLAGS = -Wall -Wextra -std=c++11
+CXXFLAGS = -Wall -Wextra -std=c++14
+
+# include paths
+INCLUDE = -I/opt/homebrew/Cellar/boost/1.90.0_1/include
 
 # Fichiers sources
 SRCS = main.cpp Reaction.cpp Entite.cpp
@@ -10,24 +13,24 @@ SRCS = main.cpp Reaction.cpp Entite.cpp
 # Fichiers objets
 OBJS = $(SRCS:.cpp=.o)
 
-# Exécutable final
+# ExÃ©cutable final
 TARGET = myFirstGillepsie
 
-# Règle par défaut
+# RÃ¨gle par dÃ©faut
 all: $(TARGET)
 	rm -f $(OBJS)
 
-# Règle pour créer l'exécutable
+# RÃ¨gle pour crÃ©er l'exÃ©cutable
 $(TARGET): $(OBJS)
-	$(CXX) $(CXXFLAGS) -o $@ $^
-
-# Règle pour compiler les fichiers .cpp en .o
+	$(CXX) $(CXXFLAGS) $(INCLUDE) -o $@ $^
+	
+# RÃ¨gle pour compiler les fichiers .cpp en .o
 %.o: %.cpp
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(INCLUDE) -c $< -o $@
 
-# Règle pour nettoyer les fichiers objets et l'exécutable
+# RÃ¨gle pour nettoyer les fichiers objets et l'exÃ©cutable
 clean:
 	rm -f $(OBJS) $(TARGET)
 
-# Règle pour tout nettoyer et recompiler
+# RÃ¨gle pour tout nettoyer et recompiler
 rebuild: clean all

@@ -26,7 +26,7 @@ class Reaction {
     void addReactant(Entite*);
     void addProduct(Entite*);
     
-    double vitesse(bool, double V=1);
+    double vitesse(bool,bool, double V, const vector<double>& y, const vector<Entite*> entites);
     
     double DeltaG();
     

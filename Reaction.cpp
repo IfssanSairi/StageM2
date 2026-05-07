@@ -2,6 +2,7 @@
 #include <iostream>
 #include <vector>
 #include <map>
+#include <cmath>
 #include <string>
 
 // Définition des constructeurs
@@ -48,31 +49,45 @@ void Reaction::addProduct(Entite* e){
 }
 
 
-double Reaction::vitesse(bool isForward, double V){
+double Reaction::vitesse(bool isForward, bool Gillespie, double V, const vector<double>& y, const vector<Entite*> entites){
     double v = isForward?kforward:kbackward;
     vector<Entite *> *vecEnt=isForward?&reactifs:&produits; // Si réaction forward, vecteur *vecEnt devient le vecteur des réactifs, sinon dans celui des produits
     
     Entite* lastreac = NULL;
     int compteur =0;
     
-    // pourquoi *vecEnt et pas simplement vecEnt
-    for (const auto& er : *vecEnt){
-        
-            if (er==lastreac){ // we assume that identical reactants are consecutive
-                compteur++;}
-            else {
-                compteur=0;
-            }
-            
-            if (er-> effectif <=0){
-                v*=0;
-            }
-            else {
-                v*= (er->effectif - compteur)/V;
-            }
+    if (Gillespie==true){
+        // pourquoi *vecEnt et pas simplement vecEnt
+        for (const auto& er : *vecEnt){
+                
+                if (er==lastreac){ // we assume that identical reactants are consecutive
+                    compteur++;}
+                else {
+                    compteur=0;
+                }
+                
+                if (er-> effectif <=0){
+                    v*=0;
+                }
+                else {
+                    v*= (er->effectif - compteur)/V;
+                }
+            lastreac=er; // on met à jour lastreac
         }
-    return v*V;
+        
+        return v*V;
     }
+    else {
+        for (const auto& er : *vecEnt){
+            auto it = find_if(entites.begin(), entites.end(),
+                              [&](const Entite* e){ return e == er; });
+            size_t j = it - entites.begin();
+            v *= y[j];
+        }
+        return v;
+    }
+}
+    
 
 double Reaction :: DeltaG(){
     double G_initial=0;
