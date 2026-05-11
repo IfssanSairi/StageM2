@@ -21,6 +21,10 @@ void trimWithBadCharacters(std::string & str)
 {
     while (str.find('\r') != str.npos)
         str.erase( str.find('\r'));
+    while (str.find(' ') != str.npos)
+        str.erase( str.find(' '));
+    while (str.find('\t') != str.npos)
+        str.erase( str.find('\t'));
 }
 
 
@@ -90,10 +94,10 @@ void initialiseStoichiometricMatrix(Reseau & reseau, vector<string> lines) // re
             stringstream ss(lines[j]);
             while (getline(ss, element, ','))
             {
+                trimWithBadCharacters(element);
                 if (!element.empty()) // si ce header n'est pas vide ?
                 {
                     cout << "Init reaction with name : " << element << endl;
-                    trimWithBadCharacters(element);
                     Reaction * newreac = new Reaction(element); // initialisation du constructeur // pointeur vers un objet Reaction construit avec le constructeur qui rentre seulement les noms
                     reac.push_back(newreac); // on ajoute ce pointeur dans le vecteur qui convient (aucune info sur la réaction pour l'instant)
                 }
@@ -107,6 +111,7 @@ void initialiseStoichiometricMatrix(Reseau & reseau, vector<string> lines) // re
             stringstream ss(lines[j]);
             while (getline(ss, element, ','))
             {
+                trimWithBadCharacters(element);
                 if (compteur==0){ // colonne avec les noms des entités
                     trimWithBadCharacters(element);
                     Entite * newentity = new Entite(element); // constructeur
@@ -180,6 +185,11 @@ void initialiseEntities(Reseau& reseau, vector<string> lines)
         getline(ss, free_energy, ',');
         getline(ss, concentration_ext, ',');
         
+        //trimWithBadCharacters(name);
+        //trimWithBadCharacters(number);
+        //trimWithBadCharacters(free_energy);
+        //trimWithBadCharacters(concentration_ext);
+        
         int entindex = findEntityByName(reseau.entites, name); // est-ce qu'il y a bien correspondance entre les entités de la matrice et les entités de la partie entités
         if (entindex<0)
         {
@@ -188,6 +198,31 @@ void initialiseEntities(Reseau& reseau, vector<string> lines)
         }
         
         // Convert variables string to double
+        /*
+        double effectif, energie_libre, con_ext;
+        //try {
+           // effectif = stod(number);
+        } catch (const invalid_argument& error) {
+            cout << error.what() << endl;
+            cout << name << "1:" << number << endl;
+        }
+        
+        try {
+            energie_libre = stod(free_energy);
+        } catch (const invalid_argument& error) {
+            cout << error.what() << endl;
+            cout << name << "2:" << free_energy << endl;
+        }
+        
+        try {
+            con_ext = stod(concentration_ext);
+        } catch (const invalid_argument& error) {
+            cout << error.what() << endl;
+            cout << name << "3:" << concentration_ext << endl;
+        }
+        */
+     
+        
         double effectif = stod(number);
         double energie_libre = stod(free_energy);
         double con_ext = stod(concentration_ext);
@@ -198,6 +233,7 @@ void initialiseEntities(Reseau& reseau, vector<string> lines)
         reseau.entites[entindex]->concentration_ext = con_ext;
     }
 
+    cout << "END" << endl;
 }
 
 void initialiseReactions(Reseau& reseau, vector<string> lines)
@@ -217,6 +253,9 @@ void initialiseReactions(Reseau& reseau, vector<string> lines)
         getline(ss, name, ',');
         getline(ss, Ea, ',');
         
+        trimWithBadCharacters(name);
+        trimWithBadCharacters(Ea);
+
         int entindex = findReactionByName(reseau.reactions, name);
         if (entindex<0)
         {
@@ -341,7 +380,7 @@ void printReactionNetwork(Reseau * reseau)
 // Variables générales (déterministe et stochastique)
 
 double V =300; // Volume total
-double p_renouvelé = 0.001; // part de volume renouvelé à l'entrée et à la sortie du système
+double p_renouvelé = 0.01; // part de volume renouvelé à l'entrée et à la sortie du système
 
 Reseau reseau; // là on définit juste le réseau, on le remplit pas
 
@@ -447,7 +486,7 @@ int main(int argc,char* argv[]) { // for arguments
         
         
         //double freq_fix_mut=0.0;
-        int nRuns = 1;
+        int nRuns = 200;
         vector<int> runs;
         vector <double> temps;
         vector <vector<double>> etats;
@@ -603,13 +642,14 @@ int main(int argc,char* argv[]) { // for arguments
         
         int idx_AB = findEntityByName(reseau.entites, "AB");
         int idx_CB = findEntityByName(reseau.entites, "CB");
-        int idx_DB = findEntityByName(reseau.entites, "DB");
-        int idx_EB = findEntityByName(reseau.entites, "EB");
-        int idx_FB = findEntityByName(reseau.entites, "FB");
-        int idx_GB = findEntityByName(reseau.entites, "GB");
-        int idx_HB = findEntityByName(reseau.entites, "HB");
+        //int idx_DB = findEntityByName(reseau.entites, "DB");
+        //int idx_EB = findEntityByName(reseau.entites, "EB");
+        //int idx_FB = findEntityByName(reseau.entites, "FB");
+        //int idx_GB = findEntityByName(reseau.entites, "GB");
+        //int idx_HB = findEntityByName(reseau.entites, "HB");
         
-        vector<int> indices = {idx_AB,idx_CB,idx_DB,idx_EB,idx_FB, idx_GB, idx_HB};
+        //vector<int> indices = {idx_AB,idx_CB,idx_DB,idx_EB,idx_FB, idx_GB, idx_HB};
+        vector<int> indices = {idx_AB,idx_CB};
         
         map<vector<bool>, int> count_config;
         
