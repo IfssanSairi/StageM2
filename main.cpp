@@ -371,7 +371,7 @@ void printReactionNetwork(Reseau * reseau)
     cout << "\nReactions properties" << endl;
     for (auto & r : reseau->reactions)
     {
-        cout << r->name << ".\tEa : " << r->E_a << ".\tk+ : " << r->kforward << ".\tk- : " << r-> kbackward <<  endl; // PROBLEME : k valent 0 donc aucune réaction ne se produit
+        cout << r->name << ".\tEa : " << r->E_a << ".\tk+ : " << r->kforward << ".\tk- : " << r-> kbackward <<  endl;
     }
 
 }
@@ -379,7 +379,7 @@ void printReactionNetwork(Reseau * reseau)
 
 // Variables générales (déterministe et stochastique)
 
-double V =300; // Volume total
+double V =100; // Volume total
 double p_renouvelé = 0.01; // part de volume renouvelé à l'entrée et à la sortie du système
 
 Reseau reseau; // là on définit juste le réseau, on le remplit pas
@@ -486,7 +486,7 @@ int main(int argc,char* argv[]) { // for arguments
         
         
         //double freq_fix_mut=0.0;
-        int nRuns = 200;
+        int nRuns = 400;
         vector<int> runs;
         vector <double> temps;
         vector <vector<double>> etats;
@@ -640,32 +640,58 @@ int main(int argc,char* argv[]) { // for arguments
             
         } // fin boucle Run
         
-        int idx_AB = findEntityByName(reseau.entites, "AB");
-        int idx_CB = findEntityByName(reseau.entites, "CB");
-        //int idx_DB = findEntityByName(reseau.entites, "DB");
-        //int idx_EB = findEntityByName(reseau.entites, "EB");
-        //int idx_FB = findEntityByName(reseau.entites, "FB");
-        //int idx_GB = findEntityByName(reseau.entites, "GB");
-        //int idx_HB = findEntityByName(reseau.entites, "HB");
-        
-        //vector<int> indices = {idx_AB,idx_CB,idx_DB,idx_EB,idx_FB, idx_GB, idx_HB};
-        vector<int> indices = {idx_AB,idx_CB};
-        
-        map<vector<bool>, int> count_config;
-        
-        for (size_t run = 0; run < all_etats.size(); run++) {
-            const auto& etat_final = all_etats[run].back(); // on prend le dernier vecteur du vecteur de tous les états pour un run donné
-            vector<bool> config;
-            config.reserve(indices.size()); // vecteur de booléens qui renseigne sur les états finaux
             
-            for (int idx : indices)
-            {
-                config.push_back(etat_final[idx] > 0); // l'inégalité transforme la valeur en booléen
+            int idx_AB = findEntityByName(reseau.entites, "AB");
+            int idx_CB = findEntityByName(reseau.entites, "CB");
+            //int idx_DB = findEntityByName(reseau.entites, "DB");
+            //int idx_EB = findEntityByName(reseau.entites, "EB");
+            //int idx_FB = findEntityByName(reseau.entites, "FB");
+            //int idx_GB = findEntityByName(reseau.entites, "GB");
+            //int idx_HB = findEntityByName(reseau.entites, "HB");
+            
+            //vector<int> indices = {idx_AB,idx_CB,idx_DB,idx_EB,idx_FB, idx_GB, idx_HB};
+            vector<int> indices = {idx_AB,idx_CB};
+            
+            map<vector<bool>, int> count_config;
+            
+            // CONFIGURATIONS
+            
+            for (size_t run = 0; run < all_etats.size(); run++) {
+                const auto& etat_final = all_etats[run].back(); // on prend le dernier vecteur du vecteur de tous les états pour un run donné
+                vector<bool> config;
+                config.reserve(indices.size()); // vecteur de booléens qui renseigne sur les états finaux
+                // réserve de la mémoire pour le nb d'indices
+                
+                for (int idx : indices)
+                {
+                    config.push_back(etat_final[idx] > 0); // l'inégalité transforme la valeur en booléen
+                }
+                
+                count_config[config]++;
+                
             }
             
-            count_config[config]++;
+            // TEMPS ETAT TRANSITOIRE OU LE MUTANT RENTRE EN JEU
             
-        }
+            // l'indice de CB dans reseau.entites est le même que celui que dans all_etats
+            
+            //cout << all_etats[0][500][idx_CB] ;
+            
+            double count_temps = 0;
+            int count_mutant =0;
+            
+            for (size_t run = 0; run < all_temps.size(); run++){
+                const auto& etat_final = all_etats[run].back();
+                for (size_t i =0; i < all_temps[run].size(); i++){
+                    if (all_etats[run][i][idx_CB]>0.01 && etat_final[idx_CB]>0){
+                        count_temps += all_temps[run][i];
+                        count_mutant += 1; // contrairement à count_config[{0,1}] + count_config[{1,1}], count mutant compte les fois où le mutant dépasse un certain seuil (quand la mutation se met vraiment en place et pas simplement quand le mutant apparaît un peu). count_mutant inférieur ou égal à count_config[{0,1}] + count_config[{1,1}]
+                        break;
+                    }
+                }
+                
+            }
+        
         
         // Création d'un fichier csv
         
@@ -718,7 +744,7 @@ int main(int argc,char* argv[]) { // for arguments
         cout << "CSV file created successfully." << endl;
         
         // Affichage Texte des résultats
-        
+        /*
         cout << "Temps : " << "Propensions : " << " Etats : \n ";
         
         
@@ -742,8 +768,10 @@ int main(int argc,char* argv[]) { // for arguments
             
         }
         
+         */
+        
         for (const auto& config : count_config) {
-            cout << "Configuration (AB,CB,DB,EB,FB,GB,HB):";
+            cout << "Configuration (AB,CB):";
             
             for (bool b : config.first) {
                 cout << b << ",";
@@ -752,14 +780,20 @@ int main(int argc,char* argv[]) { // for arguments
             cout << " Occurrence: " << config.second << "\n";
         }
         
+         
         
-        //for (size_t i=0; i < config_count.size(); i++){
-        //if (config_count[i]!=0){
+        // AFFICHAGE DU TEMPS MOYEN DE MUTATION
+        
+        cout << "Temps moyen sur les runs à partir duquel le mutant s'installe :" << count_temps/count_mutant << "\n";
+        //cout << count_mutant << "\n";
+        cout << "Nb runs où la mutation se met vraiment en place (= nb runs sur lequel la moyenne est faite):" << count_mutant << "\n";
+
+        //for (size_t i=0; i < count_config.size(); i++){
+        //if (count_config[i]!=0){
         //cout << "Configuration n°:" << i << "\n";
-        //cout << "Nombre de runs dans cette configuration:" << config_count[i] << "\n";
+        //cout << "Nombre de runs dans cette configuration:" << count_config[i] << "\n";
         //}
-        // }
-        
+        //}
         
         //cout << "Fréquence de fixation de la mutation :" << (double)freq_fix_mut / nRuns << endl ;
         
