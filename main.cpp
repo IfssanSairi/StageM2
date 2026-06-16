@@ -379,7 +379,7 @@ void printReactionNetwork(Reseau * reseau)
 
 // Variables générales (déterministe et stochastique)
 
-double V =100; // Volume total
+double V =8000; // Volume total
 double p_renouvelé = 0.01; // part de volume renouvelé à l'entrée et à la sortie du système
 
 Reseau reseau; // là on définit juste le réseau, on le remplit pas
@@ -399,6 +399,11 @@ void cycle(const vector<double>& y , vector<double> &dydt, double t){
         }
         dydt[k] += reseau.entites[k]->concentration_ext*p_renouvelé - p_renouvelé*(y[k]);
     }
+    //dydt[0] +=  p_renouvelé*(y[0]);
+    //dydt[1] += p_renouvelé*(y[1]);
+    //dydt[2] +=  p_renouvelé*(y[2]);
+    //dydt[3] += p_renouvelé*(y[3]);
+    //dydt[4] += p_renouvelé*(y[4]);
 }
 
 // Autocatalytic cycle AB
@@ -486,7 +491,7 @@ int main(int argc,char* argv[]) { // for arguments
         
         
         //double freq_fix_mut=0.0;
-        int nRuns = 400;
+        int nRuns = 20;
         vector<int> runs;
         vector <double> temps;
         vector <vector<double>> etats;
@@ -513,6 +518,10 @@ int main(int argc,char* argv[]) { // for arguments
         for (auto e : reseau.entites){
             effectifs_init.push_back(e->effectif);
         }
+        
+        int idx_AB = findEntityByName(reseau.entites, "AB");
+        int idx_ABA = findEntityByName(reseau.entites, "ABA");
+        int idx_ABAB = findEntityByName(reseau.entites, "ABAB");
         
         for (int i=0;i < nRuns; i++){
             
@@ -634,23 +643,28 @@ int main(int argc,char* argv[]) { // for arguments
                 temps.push_back(t);
                 etats.push_back(x);
                 propensions.push_back(a);
+                
+                if (reseau.entites[idx_AB]->effectif == 0 && reseau.entites[idx_ABA]->effectif == 0 && reseau.entites[idx_ABAB]->effectif == 0){
+                    break;
+                }
+                
+                
+                
             } // fin boucle while
             all_etats.push_back(etats);
             all_temps.push_back(temps);
             
         } // fin boucle Run
         
-            
-            int idx_AB = findEntityByName(reseau.entites, "AB");
             int idx_CB = findEntityByName(reseau.entites, "CB");
-            //int idx_DB = findEntityByName(reseau.entites, "DB");
+            int idx_DB = findEntityByName(reseau.entites, "DB");
             //int idx_EB = findEntityByName(reseau.entites, "EB");
             //int idx_FB = findEntityByName(reseau.entites, "FB");
             //int idx_GB = findEntityByName(reseau.entites, "GB");
             //int idx_HB = findEntityByName(reseau.entites, "HB");
             
             //vector<int> indices = {idx_AB,idx_CB,idx_DB,idx_EB,idx_FB, idx_GB, idx_HB};
-            vector<int> indices = {idx_AB,idx_CB};
+            vector<int> indices = {idx_AB,idx_CB,idx_DB};
             
             map<vector<bool>, int> count_config;
             
@@ -677,21 +691,46 @@ int main(int argc,char* argv[]) { // for arguments
             
             //cout << all_etats[0][500][idx_CB] ;
             
-            double count_temps = 0;
-            int count_mutant =0;
+            // Valeurs de seuils pour Ea de CB = 4.3 et Ea de AB = 4.5 car steady state CB = 0.0357
+            double seuil_bas = 0.0175;
+            double seuil_haut = 0.035;
+        
+            //double count_temps = 0;
+            //int count_mutant =0;
+            //double count_time =0;
+            int nb_runs_reussis=0;
+            vector <double> waitingtime;
             
             for (size_t run = 0; run < all_temps.size(); run++){
                 const auto& etat_final = all_etats[run].back();
+                double temps_debut = -1;
+                double temps_fin = -1;
                 for (size_t i =0; i < all_temps[run].size(); i++){
-                    if (all_etats[run][i][idx_CB]>0.01 && etat_final[idx_CB]>0){
-                        count_temps += all_temps[run][i];
-                        count_mutant += 1; // contrairement à count_config[{0,1}] + count_config[{1,1}], count mutant compte les fois où le mutant dépasse un certain seuil (quand la mutation se met vraiment en place et pas simplement quand le mutant apparaît un peu). count_mutant inférieur ou égal à count_config[{0,1}] + count_config[{1,1}]
-                        break;
+                    double conc_CB = all_etats[run][i][idx_CB];
+                    if (temps_debut < 0 && conc_CB>=seuil_bas && etat_final[idx_CB]>0){
+                        temps_debut=all_temps[run][i];
+                        //count_time+= all_temps[run][i];
+                        //waitingtime.push_back(all_temps[run][i]);
+                        //count_mutant += 1;
+                        //break;
+                        // contrairement à count_config[{0,1}] + count_config[{1,1}], count mutant compte les fois où le mutant dépasse un certain seuil (quand la mutation se met vraiment en place et pas simplement quand le mutant apparaît un peu). count_mutant inférieur ou égal à count_config[{0,1}] + count_config[{1,1}]
                     }
+                    // il faut rajouter une condition pour que temps final soit tjrs un temps ultérieur
+                    // pourquoi ? on peut avoir un saut qui passe de 0.019 à 0.031 et pas 0.022 à 0.031, mais du coup dans ces cas là temps d'attente =0!! ça va surtout être le cas ppur des petits volumes
+                    if(temps_debut >= 0 && temps_fin < 0 && conc_CB>=seuil_haut && etat_final[idx_CB]>0){
+                        temps_fin = all_temps[run][i];
+                        break;
+                    
+                    }
+                
+                }
+                //cout << "Temps début:" << temps_debut << "Temps fin:"<< temps_fin << "\n";
+                if (temps_debut >= 0 && temps_fin >= 0){
+                   waitingtime.push_back(temps_fin - temps_debut);
+                    nb_runs_reussis++;
                 }
                 
             }
-        
         
         // Création d'un fichier csv
         
@@ -699,12 +738,9 @@ int main(int argc,char* argv[]) { // for arguments
 
         file << "Run,Temps";
         for (size_t i = 0; i < reseau.entites.size(); ++i)
-            file << "," << reseau.entites[i]->name;
+            file << "," << reseau.entites[i]->name; // en-tête
 
         file << '\n';
-        
-        //file << "Run,Temps,A,B,C,AB,ABA,ABAB,ABC,ABCB,CB,CBC,CBCB \n";
-        //file << "Run,Temps,A,B,C,D,E,F,G,H,AB,ABA,ABAB,ABC,ABCB,CB,CBC,CBCB,ABD,ABDB,DB,DBD,DBDB,CBE,CBEB,EB,EBE,EBEB,CBF,CBFB,FB,FBF,FBFB,DBG,DBGB,GB,GBG,GBGB,DBH,DBHB,HB,HBH,HBHB \n"; // en-tête
         
         if (!file.is_open()) {
             cerr << "Failed to open file!" << endl;
@@ -743,6 +779,27 @@ int main(int argc,char* argv[]) { // for arguments
         file.close();
         cout << "CSV file created successfully." << endl;
         
+        // Création d'un fichier csv pour les temps d'attente
+        
+        ofstream file2("waiting.csv");
+
+        file2 << "Waitingtime";
+
+        file2 << '\n';
+        
+        if (!file2.is_open()) {
+            cerr << "Failed to open file!" << endl;
+            return 1;
+        }
+        
+        for (double t : waitingtime){
+            file2 << t << ",";
+                file2 << "\n";
+            }
+        file2.close();
+        cout << "CSV file created successfully." << endl;
+    
+        
         // Affichage Texte des résultats
         /*
         cout << "Temps : " << "Propensions : " << " Etats : \n ";
@@ -771,7 +828,7 @@ int main(int argc,char* argv[]) { // for arguments
          */
         
         for (const auto& config : count_config) {
-            cout << "Configuration (AB,CB):";
+            cout << "Configuration (AB,CB,DB):";
             
             for (bool b : config.first) {
                 cout << b << ",";
@@ -780,13 +837,21 @@ int main(int argc,char* argv[]) { // for arguments
             cout << " Occurrence: " << config.second << "\n";
         }
         
-         
+        double sum = 0.0;
+        if (nb_runs_reussis > 0) {
+            // Calcul de la moyenne
+            for (double t : waitingtime) {
+                sum += t;
+            }
+            }
         
         // AFFICHAGE DU TEMPS MOYEN DE MUTATION
         
-        cout << "Temps moyen sur les runs à partir duquel le mutant s'installe :" << count_temps/count_mutant << "\n";
+        cout << "Temps moyen sur les runs à partir duquel le mutant s'installe :" << sum/nb_runs_reussis<< "\n";
+        
+        //cout << "Temps moyen sur les runs à partir duquel le mutant s'installe :" << count_time/count_mutant << "\n";
         //cout << count_mutant << "\n";
-        cout << "Nb runs où la mutation se met vraiment en place (= nb runs sur lequel la moyenne est faite):" << count_mutant << "\n";
+        //cout << "Nb runs où la mutation se met vraiment en place (= nb runs sur lequel la moyenne est faite):" << count_mutant << "\n";
 
         //for (size_t i=0; i < count_config.size(); i++){
         //if (count_config[i]!=0){
@@ -813,13 +878,20 @@ int main(int argc,char* argv[]) { // for arguments
         }
         
         ofstream out("resultats.csv");
-        out << "Temps";
-        for (size_t i = 0; i < reseau.entites.size(); i++) out << "," << reseau.entites[i]->name;
+        out << "Temps,Destruction";
+        for (size_t i = 0; i < reseau.entites.size(); i++){
+            out << "," << reseau.entites[i]->name;
+        }
         out << "\n";
         
         auto observer = [&](const vector<double>& y, double t) {
-            out << t;
-            for (double val : y) out << "," << val;
+            out << t << ",";
+            out << "Destruction term = 0";
+            //out << reseau.reactions[0]->E_a;
+            //out << "Destruction term = 0";
+            for (double val : y) {
+                out << "," << val;
+            }
             out << "\n";
         };
         
