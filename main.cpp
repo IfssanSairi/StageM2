@@ -379,7 +379,7 @@ void printReactionNetwork(Reseau * reseau)
 
 // Variables générales (déterministe et stochastique)
 
-double V =3000; // Volume total
+double V =3000; // Volume total par défaut
 double p_renouvelé = 0.01; // part de volume renouvelé à l'entrée et à la sortie du système
 
 Reseau reseau; // là on définit juste le réseau, on le remplit pas
@@ -411,14 +411,16 @@ void cycle(const vector<double>& y , vector<double> &dydt, double t){
 int main(int argc,char* argv[]) { // for arguments
     
     //Reseau reseau;
-    bool verbose = true;
+    bool print = true;
     
     const struct option longopts[] =
     {
         {"reseau",   required_argument,  0, 'r'},// on met le nom du fichier qui correspond au réseau en entrée en argument
-        {"tmax",     required_argument,  0, 't'},
+        {"tmax",     required_argument,  0, 't'}, // option tmax
+        {"V",     required_argument,  0, 'v'}, // option volume = system size
+        //{"nRuns",     required_argument,  0, 'n'}, // option nb runs
         {"gillespie",required_argument,  0, 'g'}, // on ajoute l'option gillespie
-        {"verbose",  no_argument,        0, 'v'},
+        {"print",  no_argument,        0, 'p'},
         {"help",     no_argument,        0, 'h'},
         {0,0,0,0},
     };
@@ -427,7 +429,8 @@ int main(int argc,char* argv[]) { // for arguments
     int iarg=0;
     
     double tmax = 1000; // par défaut c'est ce temps maximal
-    bool Gillespie = true; // par défaut
+    int nRuns = 1; // par défaut c'est ce nb de runs
+    bool Gillespie = false; // par défaut mode continu
     
     //turn off getopt error message
     opterr=1;
@@ -443,12 +446,16 @@ int main(int argc,char* argv[]) { // for arguments
                 // printHelp(); // possibulité de coder une fonction qui explique comment se servir du programme.
                 break;
                 
-            case 'v':
-                verbose = true;
+            case 'p':
+                print = true;
                 break;
                 
             case 't':
-                tmax = stod(optarg);
+                tmax = stod(optarg); // pour comprendre la chaîne de caractères en flottant
+                break;
+                
+            case 'v':
+                V = stod(optarg); // pour comprendre la chaîne de caractères en flottant
                 break;
                 
             case 'r':
@@ -465,11 +472,12 @@ int main(int argc,char* argv[]) { // for arguments
             case 'g':
             {
                 string val = optarg;
-                
-                if (val == "true")
+                if (val == "true"){
                     Gillespie = true;
+                }// pour comprendre la chaîne de caractères comme un entier
                 else if (val == "false")
                     Gillespie = false;
+                    // nRuns déjà défini par défaut dans ce cas
                 else
                     throw runtime_error("Invalid value for --gillespie");
                 
@@ -479,7 +487,7 @@ int main(int argc,char* argv[]) { // for arguments
     }
     
     
-    if (verbose)
+    if (print)
         printReactionNetwork(&reseau);
     
     // Definition des vecteurs y et dydt
@@ -491,7 +499,6 @@ int main(int argc,char* argv[]) { // for arguments
         
         
         //double freq_fix_mut=0.0;
-        int nRuns = 1;
         vector<int> runs;
         vector <double> temps;
         vector <vector<double>> etats;
