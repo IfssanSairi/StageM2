@@ -6,6 +6,7 @@ CXXFLAGS = -Wall -Wextra -std=c++14
 
 # include paths
 INCLUDE = -I/opt/homebrew/Cellar/boost/1.90.0_1/include
+#INCLUDE = -I/opt/homebrew/include
 
 # Fichiers sources
 SRCS = main.cpp Reaction.cpp Entite.cpp

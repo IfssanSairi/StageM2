@@ -379,7 +379,7 @@ void printReactionNetwork(Reseau * reseau)
 
 // Variables générales (déterministe et stochastique)
 
-double V =8000; // Volume total
+double V =3000; // Volume total
 double p_renouvelé = 0.01; // part de volume renouvelé à l'entrée et à la sortie du système
 
 Reseau reseau; // là on définit juste le réseau, on le remplit pas
@@ -491,7 +491,7 @@ int main(int argc,char* argv[]) { // for arguments
         
         
         //double freq_fix_mut=0.0;
-        int nRuns = 20;
+        int nRuns = 1;
         vector<int> runs;
         vector <double> temps;
         vector <vector<double>> etats;
@@ -645,8 +645,9 @@ int main(int argc,char* argv[]) { // for arguments
                 propensions.push_back(a);
                 
                 if (reseau.entites[idx_AB]->effectif == 0 && reseau.entites[idx_ABA]->effectif == 0 && reseau.entites[idx_ABAB]->effectif == 0){
-                    break;
-                }
+                    cout << t << ",";
+                 break;
+               }
                 
                 
                 
@@ -692,8 +693,8 @@ int main(int argc,char* argv[]) { // for arguments
             //cout << all_etats[0][500][idx_CB] ;
             
             // Valeurs de seuils pour Ea de CB = 4.3 et Ea de AB = 4.5 car steady state CB = 0.0357
-            double seuil_bas = 0.0175;
-            double seuil_haut = 0.035;
+            double seuil_bas = 0.00825;
+            double seuil_haut = 0.0165;
         
             //double count_temps = 0;
             //int count_mutant =0;
@@ -708,6 +709,7 @@ int main(int argc,char* argv[]) { // for arguments
                 for (size_t i =0; i < all_temps[run].size(); i++){
                     double conc_CB = all_etats[run][i][idx_CB];
                     if (temps_debut < 0 && conc_CB>=seuil_bas && etat_final[idx_CB]>0){
+                    //if (conc_CB*V>=1 && etat_final[idx_CB]>0){
                         temps_debut=all_temps[run][i];
                         //count_time+= all_temps[run][i];
                         //waitingtime.push_back(all_temps[run][i]);
@@ -839,9 +841,9 @@ int main(int argc,char* argv[]) { // for arguments
         
         double sum = 0.0;
         if (nb_runs_reussis > 0) {
-            // Calcul de la moyenne
+            //Calcul de la moyenne
             for (double t : waitingtime) {
-                sum += t;
+               sum += t;
             }
             }
         
@@ -878,15 +880,15 @@ int main(int argc,char* argv[]) { // for arguments
         }
         
         ofstream out("resultats.csv");
-        out << "Temps,Destruction";
+        out << "Temps";
         for (size_t i = 0; i < reseau.entites.size(); i++){
             out << "," << reseau.entites[i]->name;
         }
         out << "\n";
         
         auto observer = [&](const vector<double>& y, double t) {
-            out << t << ",";
-            out << "Destruction term = 0";
+            out << t;
+            //out << "Destruction term = 0";
             //out << reseau.reactions[0]->E_a;
             //out << "Destruction term = 0";
             for (double val : y) {
