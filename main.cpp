@@ -341,44 +341,6 @@ Reseau initialiseReactionNetwork(string inputnetwork){
     return reseau;
 }
 
-/*
-
-void printReactionNetwork(Reseau * reseau)
-{
-    cout << "---- Printing Reaction Network ----" << endl;
-
-    // print reactions in the form 'X  Y --> Z'
-    cout << "Reactions stoichiometry:" << endl;
-    for (auto & r : reseau->reactions)
-    {
-        cout << r->name << ": ";
-        for (auto & e : r->reactifs)
-            cout << " " << e->name;
-        cout << " --> ";
-        for (auto & e : r->produits)
-            cout << " " << e->name;
-        cout << endl; 
-    }
-    cout << endl;
-
-
-    cout << "Entity properties" << endl;
-    for (auto & e : reseau->entites)
-    {
-        cout << e->name << ".\tNumber : " << e->effectif << "\t. free energy : " << e->energie_libre   << ".\tc_ext= " << e->concentration_ext << endl; 
-    }
-
-    cout << "\nReactions properties" << endl;
-    for (auto & r : reseau->reactions)
-    {
-        cout << r->name << ".\tEa : " << r->E_a << ".\tk+ : " << r->kforward << ".\tk- : " << r-> kbackward <<  endl;
-    }
-
-}
- 
- */
-
-
 // Variables générales (déterministe et stochastique)
 
 double V =3000; // Volume total par défaut
@@ -429,6 +391,8 @@ int main(int argc,char* argv[]) { // for arguments
     double tmax = 1000; // par défaut c'est ce temps maximal
     int nRuns = 1; // par défaut c'est ce nb de runs
     bool Gillespie = false; // par défaut mode continu
+    string name_reseau = "";
+    string ToDelete = ".csv";
     
     //turn off getopt error message
     opterr=1;
@@ -457,16 +421,23 @@ int main(int argc,char* argv[]) { // for arguments
                 break;
                 
             case 'r':
+            {
                 cout << "You hit reaction : " << optarg << endl; // si on a bien spécifié un réseau, on lance l'initialisation du réseau
+                name_reseau = optarg;
+                size_t pos = name_reseau.find(ToDelete);
+                if (pos != string :: npos) {
+                    name_reseau.erase(pos, ToDelete.length());
+                }
                 try
-            {
-                reseau = initialiseReactionNetwork(string(optarg)); // c'est vraiment ici qu'on remplit le réseau de réaction
-            }
+                {
+                    reseau = initialiseReactionNetwork(string(optarg)); // c'est vraiment ici qu'on remplit le réseau de réaction
+                }
                 catch( const runtime_error& error )
-            {
-                cout << error.what() << endl;
-            }
+                {
+                    cout << error.what() << endl;
+                }
                 break;
+            }
             case 'g':
             {
                 string val = optarg;
@@ -482,9 +453,14 @@ int main(int argc,char* argv[]) { // for arguments
         }
     }
     
+    cout << name_reseau << endl;
+    
+    
     // Création du fichier texte contenant les paramètres du modèle
     
-    ofstream file1("parameters.txt");
+    string txt_file_name = "parameters_" + name_reseau + ".txt";
+    cout << txt_file_name << endl;
+    ofstream file1(txt_file_name);
     
     if (file1.is_open()){
         cout << "Txt file is open"<< endl;
@@ -701,12 +677,7 @@ int main(int argc,char* argv[]) { // for arguments
         
             int idx_CB = findEntityByName(reseau.entites, "CB");
             int idx_DB = findEntityByName(reseau.entites, "DB");
-            //int idx_EB = findEntityByName(reseau.entites, "EB");
-            //int idx_FB = findEntityByName(reseau.entites, "FB");
-            //int idx_GB = findEntityByName(reseau.entites, "GB");
-            //int idx_HB = findEntityByName(reseau.entites, "HB");
             
-            //vector<int> indices = {idx_AB,idx_CB,idx_DB,idx_EB,idx_FB, idx_GB, idx_HB};
             vector<int> indices = {idx_AB,idx_CB,idx_DB};
             
             map<vector<bool>, int> count_config;
@@ -777,8 +748,8 @@ int main(int argc,char* argv[]) { // for arguments
             }
         
         // Création d'un fichier csv
-        
-        ofstream file("gillespie.csv");
+        string csv_file_name = "gillespie_" + name_reseau + ".csv";
+        ofstream file(csv_file_name);
 
         file << "Run,Temps";
         for (size_t i = 0; i < reseau.entites.size(); ++i)
@@ -825,7 +796,8 @@ int main(int argc,char* argv[]) { // for arguments
         
         // Création d'un fichier csv pour les temps d'attente
         
-        ofstream file2("waiting.csv");
+        string csv_file2_name = "waiting_"+ name_reseau +".csv";
+        ofstream file2(csv_file2_name);
 
         file2 << "Waitingtime";
 
@@ -843,34 +815,7 @@ int main(int argc,char* argv[]) { // for arguments
         file2.close();
         cout << "CSV file of waiting times created successfully." << endl;
     
-        
-        // Affichage Texte des résultats
-        /*
-        cout << "Temps : " << "Propensions : " << " Etats : \n ";
-        
-        
-        for (size_t k=0; k < etats.size(); k++){
-            cout << temps[k] << " ";
-            
-            cout << "{";
-            for (double h : propensions[k]){
-                
-                cout << h << ",";
-            }
-            cout << "} ";
-            
-            cout << "{";
-            
-            for (double x : etats[k]){
-                
-                cout << x << ",";
-            }
-            cout << "} \n";
-            
-        }
-        
-         */
-        
+       
         for (const auto& config : count_config) {
             cout << "Configuration (AB,CB,DB):";
             
@@ -921,7 +866,9 @@ int main(int argc,char* argv[]) { // for arguments
             y[i] = reseau.entites[i]->effectif/V; // concentration
         }
         
-        ofstream out("deterministe.csv");
+        string csv_out_name = "deterministe_" + name_reseau + ".csv";
+        ofstream out(csv_out_name);
+        
         out << "Temps";
         for (size_t i = 0; i < reseau.entites.size(); i++){
             out << "," << reseau.entites[i]->name;
