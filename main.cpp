@@ -341,7 +341,7 @@ Reseau initialiseReactionNetwork(string inputnetwork){
     return reseau;
 }
 
-
+/*
 
 void printReactionNetwork(Reseau * reseau)
 {
@@ -375,12 +375,14 @@ void printReactionNetwork(Reseau * reseau)
     }
 
 }
+ 
+ */
 
 
 // Variables générales (déterministe et stochastique)
 
 double V =3000; // Volume total par défaut
-double p_renouvelé = 0.01; // part de volume renouvelé à l'entrée et à la sortie du système
+double p_renewed = 0.01; // part de volume renouvelé à l'entrée et à la sortie du système (par défaut)
 
 Reseau reseau; // là on définit juste le réseau, on le remplit pas
 
@@ -397,30 +399,26 @@ void cycle(const vector<double>& y , vector<double> &dydt, double t){
         for (size_t j=0; j < reseau.reactions.size(); j++){
             dydt[k]+= reseau.M[k][j] * v[j];
         }
-        dydt[k] += reseau.entites[k]->concentration_ext*p_renouvelé - p_renouvelé*(y[k]);
+        dydt[k] += reseau.entites[k]->concentration_ext*p_renewed - p_renewed*(y[k]);
     }
-    //dydt[0] +=  p_renouvelé*(y[0]);
-    //dydt[1] += p_renouvelé*(y[1]);
-    //dydt[2] +=  p_renouvelé*(y[2]);
-    //dydt[3] += p_renouvelé*(y[3]);
-    //dydt[4] += p_renouvelé*(y[4]);
+    //dydt[0] +=  p_renewed*(y[0]);
+    //dydt[1] += p_renewed*(y[1]);
+    //dydt[2] +=  p_renewed*(y[2]);
+    //dydt[3] += p_renewed*(y[3]);
+    //dydt[4] += p_renewed*(y[4]);
 }
 
 // Autocatalytic cycle AB
 
 int main(int argc,char* argv[]) { // for arguments
     
-    //Reseau reseau;
-    bool print = true;
-    
     const struct option longopts[] =
     {
         {"reseau",   required_argument,  0, 'r'},// on met le nom du fichier qui correspond au réseau en entrée en argument
         {"tmax",     required_argument,  0, 't'}, // option tmax
         {"V",     required_argument,  0, 'v'}, // option volume = system size
-        //{"nRuns",     required_argument,  0, 'n'}, // option nb runs
+        {"p_renewed",     required_argument,  0, 'p'},
         {"gillespie",required_argument,  0, 'g'}, // on ajoute l'option gillespie
-        {"print",  no_argument,        0, 'p'},
         {"help",     no_argument,        0, 'h'},
         {0,0,0,0},
     };
@@ -446,16 +444,16 @@ int main(int argc,char* argv[]) { // for arguments
                 // printHelp(); // possibulité de coder une fonction qui explique comment se servir du programme.
                 break;
                 
-            case 'p':
-                print = true;
-                break;
-                
             case 't':
                 tmax = stod(optarg); // pour comprendre la chaîne de caractères en flottant
                 break;
                 
             case 'v':
                 V = stod(optarg); // pour comprendre la chaîne de caractères en flottant
+                break;
+                
+            case 'p':
+                p_renewed = stod(optarg); // pour comprendre la chaîne de caractères en flottant
                 break;
                 
             case 'r':
@@ -472,12 +470,10 @@ int main(int argc,char* argv[]) { // for arguments
             case 'g':
             {
                 string val = optarg;
-                if (val == "true"){
+                if (val == "true")
                     Gillespie = true;
-                }// pour comprendre la chaîne de caractères comme un entier
                 else if (val == "false")
                     Gillespie = false;
-                    // nRuns déjà défini par défaut dans ce cas
                 else
                     throw runtime_error("Invalid value for --gillespie");
                 
@@ -486,9 +482,48 @@ int main(int argc,char* argv[]) { // for arguments
         }
     }
     
+    // Création du fichier texte contenant les paramètres du modèle
     
-    if (print)
-        printReactionNetwork(&reseau);
+    ofstream file1("parameters.txt");
+    
+    if (file1.is_open()){
+        cout << "Txt file is open"<< endl;
+        file1 << "Reaction Network \n";
+        file1 << "Reactions \n";
+        for (auto & r : reseau.reactions)
+        {
+            file1 << r->name << ": ";
+            for (auto & e : r->reactifs)
+                file1 << " " << e->name;
+            file1 << " --> ";
+            for (auto & e : r->produits)
+                file1 << " " << e->name;
+            file1 << endl;
+        }
+        file1 << endl;
+        
+        file1 << "Entity properties" << endl;
+        for (auto & e : reseau.entites)
+        {
+            file1 << e->name << ".\tNumber : " << e->effectif << "\t. free energy : " << e->energie_libre   << ".\tc_ext= " << e->concentration_ext << endl;
+        }
+
+        file1 << "\nReactions properties" << endl;
+        for (auto & r : reseau.reactions)
+        {
+            file1 << r->name << ".\tEa : " << r->E_a << ".\tk+ : " << r->kforward << ".\tk- : " << r-> kbackward <<  endl;
+        }
+        
+        file1 << "\nSystem size and flows" << endl;
+        file1 << "Volume:" << V << endl;
+        file1 << "Percentage of volume renewed:" << p_renewed << endl;
+    
+        file1.close();
+        cout << "Txt file created successfully"<< endl;
+    }
+    else {
+        cout << "Failed to open Txt file!" << endl;
+    }
     
     // Definition des vecteurs y et dydt
     
@@ -581,8 +616,8 @@ int main(int argc,char* argv[]) { // for arguments
                 // Calcul des propensions de création(ou entrée) et de destruction(ou sortie)
                 
                 for (size_t j=0; j < reseau.entites.size(); j++){
-                    a[2*i+2*j]= reseau.entites[j]->concentration_ext*V*p_renouvelé; // on parcourt tout le tableau donc on doit repartir à partir de 2*i cad 2*(reactions.size()-1)
-                    a[2*i+2*j+1]= V*p_renouvelé*max(reseau.entites[j]->effectif/V,0.0); // les Vtot s'annulent
+                    a[2*i+2*j]= reseau.entites[j]->concentration_ext*V*p_renewed; // on parcourt tout le tableau donc on doit repartir à partir de 2*i cad 2*(reactions.size()-1)
+                    a[2*i+2*j+1]= V*p_renewed*max(reseau.entites[j]->effectif/V,0.0); // les Vtot s'annulent
                     
                 }
                 
@@ -652,7 +687,7 @@ int main(int argc,char* argv[]) { // for arguments
                 propensions.push_back(a);
                 
                 if (reseau.entites[idx_AB]->effectif == 0 && reseau.entites[idx_ABA]->effectif == 0 && reseau.entites[idx_ABAB]->effectif == 0){
-                    cout << t << ",";
+                    //cout << t << ",";
                  break;
                }
                 
@@ -786,7 +821,7 @@ int main(int argc,char* argv[]) { // for arguments
         }
         
         file.close();
-        cout << "CSV file created successfully." << endl;
+        cout << "CSV file of the dynamic created successfully." << endl;
         
         // Création d'un fichier csv pour les temps d'attente
         
@@ -806,7 +841,7 @@ int main(int argc,char* argv[]) { // for arguments
                 file2 << "\n";
             }
         file2.close();
-        cout << "CSV file created successfully." << endl;
+        cout << "CSV file of waiting times created successfully." << endl;
     
         
         // Affichage Texte des résultats
@@ -886,7 +921,7 @@ int main(int argc,char* argv[]) { // for arguments
             y[i] = reseau.entites[i]->effectif/V; // concentration
         }
         
-        ofstream out("resultats.csv");
+        ofstream out("deterministe.csv");
         out << "Temps";
         for (size_t i = 0; i < reseau.entites.size(); i++){
             out << "," << reseau.entites[i]->name;
